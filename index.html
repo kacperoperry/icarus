@@ -49,10 +49,70 @@ kbd{font-family:var(--body);font-size:12px;border:1px solid var(--line);border-b
 #poop i{background:#e8e4da}
 .stage{position:relative;width:100%;aspect-ratio:16/9;max-height:calc(100vh - 230px);border-radius:8px;overflow:hidden;border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
 canvas{display:block;width:100%;height:100%}
-.card{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(14,26,38,.55);backdrop-filter:blur(2px);overflow:auto}
-.card .in{max-width:480px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.card{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:center;padding:16px;background:rgba(14,26,38,.55);backdrop-filter:blur(2px);overflow:auto}
+.card .in{max-width:480px;margin:auto;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.card .in.wide{max-width:680px;width:100%;min-width:0}
+.card.intro-mode{position:fixed;inset:0;z-index:20;background:rgba(14,26,38,.94);padding:max(16px,env(safe-area-inset-top,0px)) 16px max(24px,env(safe-area-inset-bottom,0px))}
+/* intro: an illustrated start screen — sun, falling feathers, Greek key border, story scroll, route map */
+:root{--terra:#d0703f;--key:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='12' viewBox='0 0 24 12'%3E%3Cpath d='M0 11H20V1H4V8H14V4H9' fill='none' stroke='%23f2dfa6' stroke-width='1.6' opacity='.55'/%3E%3C/svg%3E")}
+.intro-mode #cardH,.intro-mode #cardP{display:none}
+.intro-mode .in{gap:14px}
+.feathers{position:fixed;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.feathers i{position:absolute;top:-60px;width:22px;height:46px;opacity:.55;background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 22 46'%3E%3Cpath d='M11 1C3 12 3 30 11 45C19 30 19 12 11 1Z' fill='%23f2dfa6'/%3E%3Cpath d='M11 4V45' stroke='%238a6a32' stroke-width='1'/%3E%3Cpath d='M11 14L5 10M11 20L4 16M11 26L5 23M11 14L17 10M11 20L18 16M11 26L17 23' stroke='%23c9b37a' stroke-width='.8'/%3E%3C/svg%3E") center/contain no-repeat;animation:fall 14s linear infinite}
+.feathers i:nth-child(1){left:8%;animation-delay:-2s;animation-duration:15s}
+.feathers i:nth-child(2){left:22%;animation-delay:-9s;animation-duration:12s;transform:scale(.7)}
+.feathers i:nth-child(3){left:41%;animation-delay:-5s;animation-duration:17s}
+.feathers i:nth-child(4){left:63%;animation-delay:-12s;animation-duration:13s;transform:scale(.8)}
+.feathers i:nth-child(5){left:79%;animation-delay:-1s;animation-duration:16s}
+.feathers i:nth-child(6){left:92%;animation-delay:-7s;animation-duration:11s;transform:scale(.6)}
+@keyframes fall{0%{transform:translate(0,0) rotate(-20deg)}25%{transform:translate(30px,28vh) rotate(25deg)}50%{transform:translate(-20px,55vh) rotate(-25deg)}75%{transform:translate(25px,82vh) rotate(20deg)}100%{transform:translate(0,112vh) rotate(-15deg)}}
+.intro-mode .in{position:relative;z-index:1}
+.hero{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:26px;width:100%;min-width:0;overflow:hidden}
+.hero .sunglow{position:absolute;top:-30px;left:50%;width:240px;height:240px;margin-left:-120px;border-radius:50%;background:radial-gradient(circle,rgba(255,236,180,.95) 0 18%,rgba(255,174,61,.45) 34%,rgba(255,174,61,0) 68%);animation:breathe 5s ease-in-out infinite;z-index:-1}
+@keyframes breathe{50%{transform:scale(1.08);opacity:.85}}
+.hero .title{font-family:var(--display);font-size:clamp(46px,9vw,78px);letter-spacing:.2em;margin:0;padding-left:.2em;line-height:1;color:var(--text);text-shadow:0 2px 24px rgba(255,174,61,.45)}
+.hero .wings{width:min(300px,70%);height:auto;margin-top:-6px}
+.hero .tag{margin:0;font-family:var(--display);font-size:clamp(16px,2.4vw,20px);letter-spacing:.14em;color:var(--wax)}
+.keyline{width:100%;height:12px;background:var(--key) repeat-x center}
+.intro-mode button.go{font-size:17px;padding:13px 34px;box-shadow:0 0 0 4px rgba(242,223,166,.15),0 8px 30px rgba(255,174,61,.35);animation:glow 2.4s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 0 7px rgba(242,223,166,.08),0 8px 40px rgba(255,174,61,.55)}}
+.intro{display:flex;flex-direction:column;gap:14px;text-align:left;width:100%;min-width:0}
+.intro section,.intro .cols{min-width:0;max-width:100%}
+.intro h3{margin:0 0 8px;font-family:var(--display);font-weight:400;font-size:15px;letter-spacing:.22em;text-transform:uppercase;color:var(--wax);display:flex;align-items:center;gap:10px}
+.intro h3::after{content:"";flex:1;height:12px;background:var(--key) repeat-x center}
+.intro p,.intro li{font-size:14px;line-height:1.55;color:var(--text)}
+.intro p{margin:0}
+.intro b{color:var(--gold);font-weight:600}
+.scroll{background:linear-gradient(180deg,rgba(242,223,166,.09),rgba(242,223,166,.03));border:1px solid rgba(242,223,166,.25);border-radius:10px;padding:16px 18px}
+.scroll .story::first-letter{float:left;font-family:var(--display);font-size:46px;line-height:.9;padding:4px 8px 0 0;color:var(--sun)}
+.quote{margin:14px 0 2px;padding:10px 0 2px 16px;border-left:3px solid var(--sun);font-family:var(--display);font-size:clamp(17px,2.6vw,21px);line-height:1.4;color:var(--wax)}
+.quote cite{display:block;margin-top:6px;font-family:var(--body);font-style:normal;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.twist{margin-top:10px!important;color:var(--text)}
+.twist b{color:var(--sun)}
+.cols{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);gap:14px}
+.box{background:rgba(22,40,58,.7);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+.keys{display:flex;flex-direction:column;gap:10px}
+.keyrow{display:flex;align-items:center;gap:10px;font-size:14px}
+.cap{display:inline-flex;align-items:center;justify-content:center;min-width:38px;height:36px;padding:0 10px;border-radius:7px;background:linear-gradient(#2a4258,#1a2c3e);border:1px solid #47637d;border-bottom-width:4px;font-weight:700;font-size:15px;color:var(--text)}
+.cap.wide{min-width:84px;font-size:13px;letter-spacing:.06em}
+.keyrow .or{color:var(--muted);font-size:13px}
+.phone{margin-top:2px;font-size:13px!important;color:var(--muted)!important}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{display:flex;gap:10px;align-items:flex-start;font-size:13px;line-height:1.4}
+.tile svg{flex:none;width:38px;height:38px}
+.route{overflow-x:auto;padding-bottom:4px;max-width:100%}
+.route ol{list-style:none;margin:0;padding:8px 4px 0;display:grid;grid-template-columns:repeat(8,minmax(78px,1fr));min-width:640px;position:relative}
+.route ol::before{content:"";position:absolute;left:6%;right:6%;top:65px;border-top:2px dashed rgba(242,223,166,.45)}
+.route li{display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px}
+.route .haz{min-height:46px;display:flex;align-items:flex-end;font-size:11.5px;line-height:1.3;color:var(--terra);font-weight:600}
+.route .dot{width:14px;height:14px;border-radius:50%;background:var(--wax);box-shadow:0 0 0 4px rgba(242,223,166,.18);position:relative;z-index:1}
+.route .isle{font-family:var(--display);font-size:14px;letter-spacing:.08em;color:var(--text)}
+.route li.end .dot{background:var(--sun);box-shadow:0 0 0 5px rgba(255,174,61,.25),0 0 18px rgba(255,174,61,.7)}
+.route li.end .isle{color:var(--sun)}
+@media (max-width:640px){.cols,.tiles{grid-template-columns:1fr}.hero .sunglow{width:190px;height:190px;margin-left:-95px}}
+@media (prefers-reduced-motion:reduce){.feathers{display:none}.hero .sunglow,.intro-mode button.go{animation:none}}
 .card h2{font-family:var(--display);font-weight:400;font-size:clamp(24px,4vw,34px);margin:0;letter-spacing:.06em;text-wrap:balance}
-.card p{margin:0;color:var(--text);line-height:1.5;font-size:15px}
+.card .in>p{margin:0;color:var(--text);line-height:1.5;font-size:15px}
 .card .small{color:var(--muted);font-size:13px}
 .btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
 button.go,button.alt{font-family:var(--body);font-weight:700;font-size:15px;letter-spacing:.06em;padding:11px 24px;border-radius:999px;cursor:pointer}
@@ -85,12 +145,60 @@ button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
   </div>
   <div class="stage" id="stage">
     <canvas id="game" aria-label="Icarus flying over the sea"></canvas>
-    <div class="card" id="card">
-      <div class="in">
+    <div class="card intro-mode" id="card">
+      <div class="feathers" id="feathers" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+      <div class="in wide" id="cardIn">
+        <div class="hero" id="hero">
+          <div class="sunglow"></div>
+          <h2 class="title">ICARUS</h2>
+          <svg class="wings" viewBox="0 0 300 40" aria-hidden="true"><path d="M150 28C120 6 70 2 6 10C40 14 66 20 84 26C64 24 44 26 26 30C56 30 82 31 104 34C90 34 76 36 64 39C96 38 124 36 150 30Z" fill="#f2dfa6" opacity=".9"/><path d="M150 28C180 6 230 2 294 10C260 14 234 20 216 26C236 24 256 26 274 30C244 30 218 31 196 34C210 34 224 36 236 39C204 38 176 36 150 30Z" fill="#f2dfa6" opacity=".9"/><circle cx="150" cy="28" r="4" fill="#ffae3d"/></svg>
+          <p class="tag">Fly the middle course</p>
+          <div class="keyline"></div>
+        </div>
         <h2 id="cardH">Island by island to Sicily</h2>
-        <p id="cardP">Keep Icarus between the sun and the sea, from Crete to Sicily. Gulls drop droppings that weigh down his wings. Fish leap and glide. Athena's shields save him once from anything, and he has 3 lives. The weather shifts the safe zone up and down. Thera's volcano blows ash and fire, Charybdis churns the whirlpool strait, and Scylla waits in the last one. Two storms soak his feathers, but warm air dries them. Follow Daedalus's trail.</p>
+        <p id="cardP">A Greek myth you can change. Fly the middle course from Crete to Sicily.</p>
         <div class="btns"><button class="go" id="goBtn">Take flight</button><button class="alt" id="altBtn" hidden>Start over</button></div>
         <p class="small" id="best"></p>
+        <div class="intro" id="intro">
+          <section class="scroll">
+            <h3>The story</h3>
+            <p class="story">Long ago on Crete, King Minos imprisoned the great inventor Daedalus and his young son Icarus. With no ship to escape, Daedalus gathered feathers, bound them with thread and wax, and built two pairs of wings. As they stood on the cliffs above the sea, he gave his son one warning.</p>
+            <blockquote class="quote">"Fly the middle course, my son. Too high, and the sun will melt the wax. Too low, and the sea will soak your feathers."<cite>Daedalus</cite></blockquote>
+            <p class="twist">In the myth, Icarus forgot. <b>This time, his fate is in your hands.</b></p>
+          </section>
+          <div class="cols">
+            <section class="box">
+              <h3>Controls</h3>
+              <div class="keys">
+                <div class="keyrow"><span class="cap">↑</span><span class="or">or</span><span class="cap wide">SPACE</span><span>beat wings</span></div>
+                <div class="keyrow"><span class="cap">↓</span><span>dive</span></div>
+                <p class="phone">On a phone, use the Rise and Dive buttons, or tap the top or bottom half of the sky.</p>
+              </div>
+            </section>
+            <section class="box">
+              <h3>Stay alive</h3>
+              <div class="tiles">
+                <div class="tile"><svg viewBox="0 0 38 38" aria-hidden="true"><path d="M3 11H35" stroke="#ff7a3c" stroke-width="2.5" stroke-dasharray="5 4"/><path d="M3 27H35" stroke="#5ac8e6" stroke-width="2.5" stroke-dasharray="5 4"/><circle cx="19" cy="19" r="4" fill="#f2dfa6"/></svg><span>Stay between the <b>sun line</b> and the <b>sea line</b></span></div>
+                <div class="tile"><svg viewBox="0 0 38 38" aria-hidden="true"><path d="M4 30C12 10 26 10 34 22" fill="none" stroke="#f2dfa6" stroke-width="2.5" stroke-dasharray="1 5" stroke-linecap="round"/><circle cx="34" cy="22" r="3.5" fill="#a9b6c2"/></svg><span>Follow <b>Daedalus</b> and his glowing trail</span></div>
+                <div class="tile"><svg viewBox="0 0 38 38" aria-hidden="true"><circle cx="19" cy="19" r="15" fill="#c8902e"/><circle cx="19" cy="19" r="12" fill="#ffd36b"/><circle cx="19" cy="19" r="8" fill="none" stroke="#8a5a17" stroke-width="1.5"/><circle cx="15.5" cy="18" r="2.2" fill="#8a5a17"/><circle cx="22.5" cy="18" r="2.2" fill="#8a5a17"/></svg><span><b>Athena's shields</b>: +10 points, and each saves you once</span></div>
+                <div class="tile"><svg viewBox="0 0 38 38" aria-hidden="true"><path d="M7 15C7 11 12 10 13 13C14 10 19 11 19 15C19 19 13 22 13 22C13 22 7 19 7 15Z" fill="#ff6a4d"/><path d="M19 23C19 19 24 18 25 21C26 18 31 19 31 23C31 27 25 30 25 30C25 30 19 27 19 23Z" fill="#ff6a4d"/><path d="M20 10C20 7 24 6 25 9C26 6 30 7 30 10C30 13 25 16 25 16C25 16 20 13 20 10Z" fill="#ff6a4d" opacity=".8"/></svg><span><b>3 lives</b>, and every island is a checkpoint</span></div>
+              </div>
+            </section>
+          </div>
+          <section class="box">
+            <h3>The journey</h3>
+            <div class="route"><ol>
+              <li><span class="haz">Start</span><span class="dot"></span><span class="isle">Crete</span></li>
+              <li><span class="haz">Gulls, clouds, tides</span><span class="dot"></span><span class="isle">Paros</span></li>
+              <li><span class="haz">Leaping fish, gusts</span><span class="dot"></span><span class="isle">Delos</span></li>
+              <li><span class="haz">Charybdis, hot and cold winds</span><span class="dot"></span><span class="isle">Samos</span></li>
+              <li><span class="haz">The first storm</span><span class="dot"></span><span class="isle">Icaria</span></li>
+              <li><span class="haz">Thera's volcano</span><span class="dot"></span><span class="isle">Naxos</span></li>
+              <li><span class="haz">Flying fish</span><span class="dot"></span><span class="isle">Calymne</span></li>
+              <li class="end"><span class="haz">Great storm, then Scylla</span><span class="dot"></span><span class="isle">Sicily</span></li>
+            </ol></div>
+          </section>
+        </div>
       </div>
     </div>
   </div>
@@ -327,6 +435,7 @@ function end(kind){
   state=kind==='win'?'won':'dead';
   kind==='win'?Snd.win():Snd.die();
   if(dist>best){best=dist;try{localStorage.setItem('icarus-v5-best',String(best))}catch(e){}}
+  $('intro').hidden=true;$('hero').hidden=true;$('feathers').hidden=true;$('cardIn').classList.remove('wide');card.classList.remove('intro-mode');
   cardH.textContent=MSG[kind][0];
   cardP.textContent=MSG[kind][1]+' Distance flown: '+Math.round(dist)+' of '+TOTAL+' stadia. Shields collected: '+shieldsGot+' (+'+score+' points).'+(kind==='win'?' Lives left: '+lives+' of 3.':' All 3 lives are gone.');
   if(score>bestScore){bestScore=score;try{localStorage.setItem('icarus-v5-score',String(bestScore))}catch(e){}}
