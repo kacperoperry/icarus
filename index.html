@@ -1,0 +1,1128 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Icarus: fly from Crete to Sicily between the sun and the sea. A browser game based on the Greek myth.">
+<style>[hidden]{display:none!important}body{margin:0;font-family:system-ui,sans-serif}img{max-width:100%}</style>
+<title>Icarus v5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Marcellus&family=Figtree:wght@400;600;700&display=swap">
+<style>
+/* Layout: one screen — title strip, HUD bar, 16:9 sky canvas, touch controls. Single deliberate dusk-Aegean look. */
+:root{
+  --ink:#0e1a26;
+  --panel:#16283a;
+  --line:#2c4258;
+  --text:#f3ead6;
+  --muted:#a9b6c2;
+  --wax:#f2dfa6;
+  --sun:#ffae3d;
+  --sea:#3fa7c4;
+  --danger:#ff6a4d;
+  --gold:#ffd36b;
+  --display:'Marcellus', 'Palatino Linotype', Georgia, serif;
+  --body:'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+*{box-sizing:border-box}
+body{background:var(--ink);color:var(--text);font-family:var(--body);margin:0;padding-inline:16px;padding-block:14px;display:flex;flex-direction:column;align-items:center;gap:10px;overflow:hidden}
+.wrap{width:100%;max-width:980px;display:flex;flex-direction:column;gap:10px;min-height:0;flex:1}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.ttl{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;min-width:0}
+h1{font-family:var(--display);font-weight:400;font-size:clamp(26px,4vw,38px);letter-spacing:.12em;margin:0}
+header p{margin:0;color:var(--muted);font-size:13px}
+kbd{font-family:var(--body);font-size:12px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:1px 6px;color:var(--text);background:var(--panel)}
+.snd{font-family:var(--body);font-size:13px;font-weight:600;color:var(--text);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:6px 14px;cursor:pointer}
+.snd[aria-pressed="false"]{color:var(--muted)}
+.hud{display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1fr;gap:14px;align-items:end}
+.hud .lab{font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);display:flex;justify-content:space-between;gap:8px;margin-bottom:5px}
+.hud .lab b{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:.04em}
+.bar{position:relative;height:8px;background:var(--panel);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;transition:width .08s linear}
+.bar s{position:absolute;top:0;bottom:0;width:2px;background:var(--ink)}
+#prog i{background:linear-gradient(90deg,var(--wax),var(--sun))}
+#heat i{background:var(--danger)}
+#wet i{background:var(--sea)}
+#shd i{background:var(--gold)}
+#poop i{background:#e8e4da}
+.stage{position:relative;width:100%;aspect-ratio:16/9;max-height:calc(100vh - 230px);border-radius:8px;overflow:hidden;border:1px solid var(--line);touch-action:none;user-select:none;-webkit-user-select:none}
+canvas{display:block;width:100%;height:100%}
+.card{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(14,26,38,.55);backdrop-filter:blur(2px);overflow:auto}
+.card .in{max-width:480px;text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center}
+.card h2{font-family:var(--display);font-weight:400;font-size:clamp(24px,4vw,34px);margin:0;letter-spacing:.06em;text-wrap:balance}
+.card p{margin:0;color:var(--text);line-height:1.5;font-size:15px}
+.card .small{color:var(--muted);font-size:13px}
+.btns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+button.go,button.alt{font-family:var(--body);font-weight:700;font-size:15px;letter-spacing:.06em;padding:11px 24px;border-radius:999px;cursor:pointer}
+button.go{border:0;background:var(--wax);color:var(--ink)}
+button.go:hover{background:#fff1c4}
+button.alt{border:1px solid var(--wax);background:transparent;color:var(--wax)}
+button:focus-visible{outline:3px solid var(--sun);outline-offset:3px}
+.touch{display:none;gap:10px}
+.touch button{flex:1;font-family:var(--body);font-weight:700;font-size:16px;padding:14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);color:var(--text)}
+@media (hover:none){.touch{display:flex}}
+@media (max-width:720px){.hud{grid-template-columns:1fr 1fr}.hud .p{grid-column:1/-1}}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="ttl">
+      <h1>ICARUS <span style="font-size:.45em;letter-spacing:.1em;color:var(--gold)">V5</span></h1>
+      <p><kbd>↑</kbd> or <kbd>Space</kbd> beat wings &nbsp; <kbd>↓</kbd> dive &nbsp; Follow Daedalus</p>
+    </div>
+    <button class="snd" id="snd" aria-pressed="true">Sound on</button>
+  </header>
+  <div class="hud">
+    <div class="p"><div class="lab"><span id="stageT">Leg 1 of 6 · Crete → Paros</span><b id="progT">0 stadia</b></div><div class="bar" id="prog"><i></i></div></div>
+    <div><div class="lab"><span>Wax melting</span><b id="heatT">0%</b></div><div class="bar" id="heat"><i></i></div></div>
+    <div><div class="lab"><span>Feathers soaked</span><b id="wetT">0%</b></div><div class="bar" id="wet"><i></i></div></div>
+    <div><div class="lab"><span>Shield</span><b id="shdT">None</b></div><div class="bar" id="shd"><i></i></div></div>
+    <div><div class="lab"><span>Droppings</span><b id="poopT">0 / 3</b></div><div class="bar" id="poop"><i></i></div></div>
+  </div>
+  <div class="stage" id="stage">
+    <canvas id="game" aria-label="Icarus flying over the sea"></canvas>
+    <div class="card" id="card">
+      <div class="in">
+        <h2 id="cardH">Island by island to Sicily</h2>
+        <p id="cardP">Keep Icarus between the sun and the sea, from Crete to Sicily. Gulls drop droppings that weigh down his wings. Fish leap and glide. Athena's shields save him once from anything, and he has 3 lives. The weather shifts the safe zone up and down. Thera's volcano blows ash and fire, Charybdis churns the whirlpool strait, and Scylla waits in the last one. Two storms soak his feathers, but warm air dries them. Follow Daedalus's trail.</p>
+        <div class="btns"><button class="go" id="goBtn">Take flight</button><button class="alt" id="altBtn" hidden>Start over</button></div>
+        <p class="small" id="best"></p>
+      </div>
+    </div>
+  </div>
+  <div class="touch"><button id="tUp">▲ Rise</button><button id="tDown">▼ Dive</button></div>
+</div>
+
+<script>
+(function(){
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const $=id=>document.getElementById(id);
+const card=$('card'),cardH=$('cardH'),cardP=$('cardP'),goBtn=$('goBtn'),altBtn=$('altBtn'),bestEl=$('best');
+let W=0,H=0,FT=1;
+const SPEED=7.5;
+const BASE_LO=5, BASE_HI=10, CAUTION=1.5; // safe band and soft caution margin, in feet
+
+/* Route (after Ovid: Paros, Delos, Samos, Calymne), with Thera's volcano midway through leg 4.
+   Outside the volcano and the storm, hazards take turns: gulls → weather → fish → weather, with a short calm between.
+   `weather` lists which weather events each leg can draw (every one comes up before any repeats). */
+const STAGES=[
+  {a:'Crete',b:'Paros',len:170,name:'Calm Seas',sub:'Gulls, then gentle weather',fish:null,gull:[1.3,.8],
+   weather:['cloud','tide'],say:'Follow my trail, Icarus. Not too high, not too low.'},
+  {a:'Paros',b:'Delos',len:160,name:'The Winds',sub:'Gusty winds, tides, and fish begin to leap',fish:{every:[1.2,.8],fly:.3},gull:[1.1,.7],
+   weather:['cloud','tide','high','gusty'],say:'Mind the gusts and the tides, and the fish below!'},
+  {a:'Delos',b:'Samos',len:160,name:'Hot and Cold Winds',sub:'Hot wind: fly lower. Cold wind: fly higher.',fish:{every:[1.1,.8],fly:.4},gull:[1.1,.7],
+   weather:['cloud','tide','high','gusty','hot','cold'],say:'Feel the air, my son. Hot wind, go lower. Cold wind, go higher.'},
+  {a:'Samos',b:'Icaria',len:160,name:'The First Storm',sub:"Rain soaks the cold air. Warm air and Athena's shields keep you dry",fish:null,gull:null,
+   weather:['gusty','high'],storm:true,say:'A storm over Icaria! Keep to the warm air, my son!'},
+  {a:'Icaria',b:'Naxos',len:200,name:'The Volcano of Thera',sub:'Pass Thera: fly above the ash, dodge the fire',fish:{every:[1.1,.8],fly:.45},gull:[1.1,.7],
+   weather:['cloud','tide','high','gusty','hot','cold'],volcano:true,say:'Thera smokes ahead. Stay with me, Icarus.'},
+  {a:'Naxos',b:'Calymne',len:160,name:'Flying Fish',sub:'Fish leap and glide high above the waves',fish:{every:[.75,.55],fly:.65},gull:[1.1,.7],
+   weather:['cloud','tide','high','gusty','hot','cold'],say:'Flying fish ahead! They glide higher than you think!'},
+  {a:'Calymne',b:'Sicily',len:220,name:'The Great Storm',sub:"No birds. Fly in the warm air or grab Athena's shields",fish:null,gull:null,
+   weather:['gusty','high'],storm:true,say:"The storm is here! Grab Athena's shield, or keep to the warm air up high!"}
+];
+const BOUNDS=[];{let s=0;for(const S of STAGES){s+=S.len;BOUNDS.push(s)}}
+const TOTAL=BOUNDS[BOUNDS.length-1];
+const legStart=i=>i?BOUNDS[i-1]:0;
+const stageAt=d=>{for(let i=0;i<BOUNDS.length;i++)if(d<BOUNDS[i])return i;return BOUNDS.length-1};
+const VLEG=STAGES.findIndex(s=>s.volcano), VX=legStart(VLEG)+90; // Thera's crater, in stadia
+const V_IN=VX-45, V_OUT=VX+18;                                    // volcano zone around it
+// Charybdis, the whirlpool monster, guards a strait midway through leg 3: she pulls Icarus down and spits the sea up in spouts
+const CLEG=2, CX=legStart(CLEG)+85, C_IN=CX-55, C_OUT=CX+20;
+const SLEG=STAGES.findIndex(s=>s.storm);
+const WARN=40;   // "storm approaching" stretch before the storm leg
+const CLEAR=105; // the storm clears for the final approach to Sicily
+// Scylla, the six-headed monster of the Strait of Messina, guards the water just before Sicily
+const SCY_IN=TOTAL-98, SCY_OUT=TOTAL-18;
+const EVTXT={
+  cloud:'Clouds cover the sun! Rise to 12 ft, but the gulls are coming!',
+  tide:'Low tide! Dip down to 3 ft, but the fish are leaping!',
+  high:'High tide! The waves are rising. Stay above 6.5 ft!',
+  hot:'Hot wind! The wax softens. Fly lower!',
+  cold:'Cold wind off the sea! Fly higher!',
+  gusty:'Gusty winds! Updrafts and downdrafts ahead!'
+};
+const EVCHIP={cloud:'CLOUD COVER + GULLS',tide:'LOW TIDE + FISH',high:'HIGH TIDE',hot:'HOT WIND',cold:'COLD WIND',gusty:'GUSTY WINDS'};
+const EVKEYS=['cloud','tide','high','hot','cold'];
+// progress ticks at each island
+{const bar=$('prog');for(let i=0;i<BOUNDS.length-1;i++){const s=document.createElement('s');s.style.left=(BOUNDS[i]/TOTAL*100)+'%';bar.appendChild(s)}}
+
+function resize(){
+  const r=cv.getBoundingClientRect(),d=Math.min(2,window.devicePixelRatio||1);
+  W=r.width;H=r.height;cv.width=Math.round(W*d);cv.height=Math.round(H*d);
+  ctx.setTransform(d,0,0,d,0,0);FT=H/15;
+}
+window.addEventListener('resize',resize);
+
+/* ---------- sound (synthesised, no files) ---------- */
+let storm=0;
+const Snd={on:true,c:null,
+  init(){
+    if(this.c){if(this.c.state==='suspended')this.c.resume();return}
+    try{
+      const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
+      const c=this.c=new C();
+      this.m=c.createGain();this.m.gain.value=this.on?.8:0;this.m.connect(c.destination);
+      const b=this.nb=c.createBuffer(1,c.sampleRate*2,c.sampleRate),d=b.getChannelData(0);
+      for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
+      this.makeVerb();this.sea();this.music();
+    }catch(e){this.c=null}
+  },
+  setOn(v){this.on=v;if(this.c)this.m.gain.setTargetAtTime(v?.8:0,this.c.currentTime,.05)},
+  noise(dur,f,q,g,type,att){
+    if(!this.c)return;const c=this.c,n=c.currentTime,s=c.createBufferSource();s.buffer=this.nb;s.loop=true;
+    const fl=c.createBiquadFilter();fl.type=type||'bandpass';fl.frequency.value=f;fl.Q.value=q;
+    const gn=c.createGain();gn.gain.setValueAtTime(.0001,n);gn.gain.exponentialRampToValueAtTime(g,n+(att||.01));gn.gain.exponentialRampToValueAtTime(.0001,n+dur);
+    s.connect(fl);fl.connect(gn);gn.connect(this.m);s.start(n);s.stop(n+dur+.05);
+  },
+  tone(f,dur,type,g,to,delay){
+    if(!this.c)return;const c=this.c,n=c.currentTime+(delay||0),o=c.createOscillator(),gn=c.createGain();
+    o.type=type;o.frequency.setValueAtTime(f,n);if(to)o.frequency.exponentialRampToValueAtTime(to,n+dur);
+    gn.gain.setValueAtTime(.0001,n);gn.gain.exponentialRampToValueAtTime(g,n+.01);gn.gain.exponentialRampToValueAtTime(.0001,n+dur);
+    o.connect(gn);gn.connect(this.m);o.start(n);o.stop(n+dur+.05);
+  },
+  sea(){
+    const c=this.c,s=c.createBufferSource();s.buffer=this.nb;s.loop=true;
+    const f=c.createBiquadFilter();f.type='lowpass';f.frequency.value=420;
+    const g=c.createGain();g.gain.value=.05;
+    const l=c.createOscillator(),lg=c.createGain();l.frequency.value=.13;lg.gain.value=.035;l.connect(lg);lg.connect(g.gain);
+    s.connect(f);f.connect(g);g.connect(this.m);s.start();l.start();this.seaGain=g;
+  },
+  /* The music is an old Greek lyre: each note is a real plucked string, synthesised with the
+     Karplus-Strong method (a short burst of noise fed back through a delay the length of one string vibration). */
+  makeVerb(){
+    const c=this.c,sr=c.sampleRate,len=Math.floor(sr*2.6),b=c.createBuffer(2,len,sr);
+    for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}
+    const cv=c.createConvolver();cv.buffer=b;const g=c.createGain();g.gain.value=.38;cv.connect(g);g.connect(this.m);this.rv=cv;
+  },
+  harpBuf(f){
+    this.hb=this.hb||{};const key=f.toFixed(2);if(this.hb[key])return this.hb[key];
+    const c=this.c,sr=c.sampleRate,len=Math.floor(sr*3.2),b=c.createBuffer(1,len,sr),d=b.getChannelData(0);
+    const N=Math.max(2,Math.round(sr/f));
+    let prev=0;for(let i=0;i<N;i++){prev=prev*.55+(Math.random()*2-1)*.45;d[i]=prev}   // a soft finger pluck
+    const decay=f<200?.9968:f<500?.995:.992;
+    d[N]=decay*d[0];
+    for(let i=N+1;i<len;i++)d[i]=decay*.5*(d[i-N]+d[i-N-1]);
+    let mx=0;for(let i=0;i<len;i++)mx=Math.max(mx,Math.abs(d[i]));if(mx)for(let i=0;i<len;i++)d[i]/=mx;
+    return this.hb[key]=b;
+  },
+  harp(f,at,g,rate){
+    if(!this.c||!this.rv)return;const c=this.c;at=at||c.currentTime;
+    const s=c.createBufferSource();s.buffer=this.harpBuf(f);s.playbackRate.value=rate||1;
+    const gn=c.createGain();gn.gain.setValueAtTime(g,at);gn.gain.setTargetAtTime(.0001,at+2.2,.4);
+    s.connect(gn);gn.connect(this.m);gn.connect(this.rv);s.start(at);s.stop(at+3.2);
+  },
+  music(){
+    const c=this.c;
+    const N={G3:196,A3:220,C4:261.63,D4:293.66,E4:329.63,F4:349.23,G4:392,A4:440,C5:523.25,D5:587.33,E5:659.25,F5:698.46};
+    // slow arpeggios over a modal progression (D minor, C, D minor, A minor), with a high melody note now and then
+    const bars=[['D4','A3','D4','F4','A4','F4','D4','A3'],['C4','G3','C4','E4','G4','E4','C4','G3'],
+                ['D4','A3','D4','F4','A4','D5','A4','F4'],['A3','E4','A4','C5','E5','C5','A4','E4']];
+    const mel=['F5','E5','D5','E5'];
+    const dr=c.createOscillator(),dg=c.createGain();dr.type='sine';dr.frequency.value=73.42;dg.gain.value=.012;dr.connect(dg);dg.connect(this.m);dr.start();
+    let step=0,next=c.currentTime+.3;
+    setInterval(()=>{
+      while(next<c.currentTime+.5){
+        const b=Math.floor(step/8),bar=bars[b%bars.length],i=step%8,st=storm>.5,rate=st?.89:1;
+        this.harp(N[bar[i]],next,i===0?.17:.1,rate);
+        if(i===0&&Math.random()<.65)this.harp(N[mel[b%mel.length]],next+.03,.07,rate);
+        step++;next+=st?.27:.36;   // a little faster and lower in the storms
+      }
+    },100);
+  },
+  stormSea(a){if(this.seaGain)this.seaGain.gain.setTargetAtTime(.05+.06*a,this.c.currentTime,1)},
+  flap(){this.noise(.14,700,.9,.18,'bandpass',.01)},
+  gull(){this.tone(1500,.18,'triangle',.04,1000);this.tone(1600,.22,'triangle',.035,950,.22)},
+  thunder(){this.noise(1.8,140,.4,.55,'lowpass',.04)},
+  rumble(){this.noise(1.6,90,.4,.22,'lowpass',.15)},
+  gust(){this.noise(1.1,500,.4,.12,'bandpass',.35)},
+  wind(){this.noise(2.2,900,.3,.1,'bandpass',.6)},
+  splash(){this.noise(.4,1500,.7,.14,'bandpass',.01)},
+  splat(){this.noise(.25,400,1.2,.25,'lowpass',.005);this.tone(180,.2,'sine',.08,90)},
+  shield(){if(!this.c)return;const n=this.c.currentTime;[783.99,987.77,1174.66].forEach((f,i)=>this.harp(f,n+i*.06,.12))},
+  shatter(){this.noise(.5,3000,.8,.2,'highpass',.005);this.tone(900,.4,'square',.03,200)},
+  fire(){this.noise(.6,300,.6,.18,'bandpass',.02)},
+  roar(){this.tone(110,.7,'sawtooth',.05,65);this.noise(.6,250,.8,.12,'bandpass',.05)},
+  cough(){this.noise(.3,600,1,.12,'bandpass',.01)},
+  chime(){if(!this.c)return;const n=this.c.currentTime;this.harp(659.25,n,.14);this.harp(880,n+.12,.14)},
+  die(){if(!this.c)return;const n=this.c.currentTime;[440,349.23,293.66,220].forEach((f,i)=>this.harp(f,n+i*.12,.15))},
+  win(){if(!this.c)return;const n=this.c.currentTime;[293.66,329.63,349.23,392,440,523.25,587.33,659.25,698.46,880].forEach((f,i)=>this.harp(f,n+i*.08,.13))}
+};
+try{if(localStorage.getItem('icarus-sound')==='off')Snd.on=false}catch(e){}
+const sndBtn=$('snd');
+function paintSnd(){sndBtn.textContent=Snd.on?'Sound on':'Sound off';sndBtn.setAttribute('aria-pressed',String(Snd.on))}
+paintSnd();
+sndBtn.addEventListener('click',()=>{Snd.init();Snd.setOn(!Snd.on);paintSnd();try{localStorage.setItem('icarus-sound',Snd.on?'on':'off')}catch(e){}});
+
+/* ---------- game state ---------- */
+let best=0;try{best=+localStorage.getItem('icarus-v5-best')||0}catch(e){}
+let bestScore=0;try{bestScore=+localStorage.getItem('icarus-v5-score')||0}catch(e){}
+function showBest(){bestEl.textContent=(best>0?'Your best flight: '+Math.round(best)+' of '+TOTAL+' stadia':'')+(bestScore>0?' · Best score: '+bestScore+' points':'')}
+showBest();
+
+let state='ready',spouts=[],spoutIn=1,heads=[],headIn=1,lives=3,score=0,shieldsGot=0,floats=[],phase,P,D,gulls,droppings,fishes,parts,bolts,rocks,pickups,trail,gust,t=0,dist,
+    spawnIn,gustIn,boltIn,fishIn,shieldIn,rockIn,stormEvIn,isles,lim,ev,banner,bubble,sayCd,stage,flash=0,trailIn,
+    retryFrom=0,flags,stormWarn=0,deck=[],deckStage=-1,landT=0;
+function legBanner(){const S=STAGES[stage];return{txt:'Leg '+(stage+1)+' · '+S.a+' → '+S.b,sub:(stage?'Reached '+S.a+'. ':'')+S.name+': '+S.sub,life:3.4}}
+function reset(from){
+  P={alt:7.5,vy:0,flap:0,heat:0,wet:0,ash:0,shield:0,shieldMax:1,poop:0,inv:0};
+  D={alt:7.5,vy:0};
+  gulls=[];droppings=[];fishes=[];parts=[];bolts=[];rocks=[];pickups=[];trail=[];heads=[];headIn=1;spouts=[];spoutIn=1;score=0;shieldsGot=0;floats=[];lives=3;gust=null;dist=from;
+  spawnIn=.5;gustIn=1;boltIn=3;fishIn=.5;rockIn=1;stormEvIn=6;trailIn=0;
+  stage=stageAt(dist);storm=STAGES[stage].storm?1:0;
+  shieldIn=STAGES[stage].storm?.6:5;
+  lim={hi:BASE_HI,lo:BASE_LO};ev={cloud:0,tide:0,high:0,hot:0,cold:0,kind:null,left:0};bubble=null;sayCd=0;
+  phase={kind:'rest',left:2,idx:-1};deck=[];deckStage=-1;flags={};stormWarn=0;landT=0;
+  banner=legBanner();
+  isles=[{x:.3,s:1},{x:.75,s:.7},{x:1.2,s:1.3}];
+}
+reset(0);
+
+function nextWeather(S){
+  // a shuffled deck that carries across islands, so every event comes up before any repeats
+  if(!deck.length){deck=S.weather.slice();for(let i=deck.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[deck[i],deck[j]]=[deck[j],deck[i]]}deckStage=stage}
+  return deck.pop();
+}
+function say(txt,force){if(!force&&sayCd>0)return;bubble={txt,life:2.4};sayCd=3}
+// each dropping on the wings makes the wing beat weaker
+function flap(){if(state!=='playing')return;P.vy=5-.5*P.poop;P.flap=1-.25*P.poop;Snd.flap()}
+function dive(){if(state!=='playing')return;P.vy=Math.min(P.vy,-3.5)}
+function start(from){Snd.init();Snd.stormSea(STAGES[stageAt(from)].storm?1:0);reset(from);state='playing';card.hidden=true;say(STAGES[stage].say,true)}
+goBtn.addEventListener('click',()=>start(retryFrom));
+altBtn.addEventListener('click',()=>start(0));
+window.addEventListener('keydown',e=>{
+  if(['ArrowUp','ArrowDown',' '].includes(e.key)||e.code==='Space')e.preventDefault();
+  if(e.repeat)return;
+  if(state==='ready'||state==='dead'||state==='won'){if(e.key==='Enter'||e.code==='Space')start(retryFrom);return}
+  if(e.key==='ArrowUp'||e.code==='Space'||e.key==='w')flap();
+  if(e.key==='ArrowDown'||e.key==='s')dive();
+});
+cv.addEventListener('pointerdown',e=>{
+  if(state!=='playing')return;
+  const r=cv.getBoundingClientRect();(e.clientY-r.top<r.height/2)?flap():dive();
+});
+$('tUp').addEventListener('pointerdown',e=>{e.preventDefault();if(state==='playing')flap();else if(state!=='landing')start(retryFrom)});
+$('tDown').addEventListener('pointerdown',e=>{e.preventDefault();dive()});
+
+const MSG={
+  sun:['The wax gave way','He flew too close to the sun. The feathers came loose and Icarus fell.'],
+  sea:['The sea took him','He flew too low. The spray soaked his wings and the waves pulled him under.'],
+  rain:['Soaked by the storm',"The cold rain soaked his feathers and he sank. Fly in the warm air, where wings dry quickly, or grab Athena's shields."],
+  gull:['Struck by a gull','A seabird tore through his wing.'],
+  poop:['Weighed down','Three gull droppings made his wings too heavy to fly, and he sank into the sea.'],
+  fish:['Pulled into the sea','A leaping fish struck him and he tumbled into the waves.'],
+  bolt:['Struck by lightning','The storm caught him. Fly beneath the bolts next time.'],
+  ash:['Choked by ash',"Thera's ash cloud filled his lungs. Fly above the smoke next time."],
+  crater:['Into the volcano','He flew too low over Thera and struck the burning mountain.'],
+  lava:["Struck by Thera's fire",'A burning rock from the volcano hit his wing.'],
+  charybdis:['Swallowed by Charybdis','The whirlpool spat up the sea and dragged him down into the deep.'],
+  scylla:['Caught by Scylla',"One of Scylla's six heads snatched him from the sky, just short of Sicily."],
+  win:['Welcome to Sicily','Icarus crossed seven seas, outlasted two storms, escaped Charybdis, passed Thera\'s fire, slipped past Scylla and landed beside his father. Daedalus is proud of him.']
+};
+function end(kind){
+  state=kind==='win'?'won':'dead';
+  kind==='win'?Snd.win():Snd.die();
+  if(dist>best){best=dist;try{localStorage.setItem('icarus-v5-best',String(best))}catch(e){}}
+  cardH.textContent=MSG[kind][0];
+  cardP.textContent=MSG[kind][1]+' Distance flown: '+Math.round(dist)+' of '+TOTAL+' stadia. Shields collected: '+shieldsGot+' (+'+score+' points).'+(kind==='win'?' Lives left: '+lives+' of 3.':' All 3 lives are gone.');
+  if(score>bestScore){bestScore=score;try{localStorage.setItem('icarus-v5-score',String(bestScore))}catch(e){}}
+  if(kind!=='win'&&stage>0){retryFrom=legStart(stage);goBtn.textContent='Retry from '+STAGES[stage].a;altBtn.hidden=false}
+  else{retryFrom=0;goBtn.textContent=kind==='win'?'Fly again':'Try again';altBtn.hidden=true}
+  showBest();card.hidden=false;
+}
+// Athena's shield saves Icarus once from anything: melting, drowning, ash, the volcano, droppings or a hit.
+const SAVE={sun:"Athena's shield saved you from the sun! It's gone now.",sea:"Athena's shield pulled you from the waves! It's gone now.",
+  rain:"Athena's shield dried your wings! It's gone now.",ash:"Athena's shield cleared the ash! Climb!",crater:"Athena's shield lifted you off the mountain!",
+  poop:"Athena's shield washed your wings clean!",gull:'Your shield took the hit from the gull!',fish:'Your shield took the hit from the fish!',
+  bolt:'Your shield took the lightning strike!',scylla:'Your shield made Scylla let go!',charybdis:'Your shield lifted you out of the spout!',lava:'Your shield took the fire!'};
+// Order of protection: Athena's shield first, then one of Icarus's 3 lives. Game over only when all lives are gone.
+function lose(kind){
+  if(P.inv>0)return false;
+  if(P.shield>0){rescue(kind);return false}
+  if(lives>1){loseLife(kind);return false}
+  lives=0;end(kind);return true;
+}
+function loseLife(kind){
+  lives--;P.inv=2;flash=.8;Snd.die();
+  say(lives===1?'You lost a life! This is your last one, my son!':'You lost a life! '+lives+' left.',true);
+  P.heat=0;P.wet=0;P.ash=0;P.poop=0;
+  const mid=(lim.lo+lim.hi)/2;
+  if(['sun','sea','rain','ash','crater','poop'].includes(kind)){P.alt=Math.max(mid,ashTop(dist)+1,terrain(dist)+2);P.vy=1.5}
+  if(kind==='scylla'||kind==='charybdis'){P.alt=Math.max(P.alt,9.2);P.vy=2}
+  for(let i=0;i<16;i++)parts.push({x:W*.26,y:altY(P.alt),vx:(Math.random()-.5)*FT*7,vy:-FT*Math.random()*4,life:.8,k:'ember'});
+}
+const hit=lose;
+function rescue(kind){
+  P.shield=0;P.inv=1.5;flash=.6;Snd.shatter();Snd.shield();
+  say(SAVE[kind]||"Athena's shield saved you!",true);
+  if(kind==='sun'){P.heat=0;P.alt=Math.min(P.alt,lim.hi-1);P.vy=-1}
+  if(kind==='sea'||kind==='rain'){P.wet=0;P.alt=Math.max(P.alt,lim.lo+1.5);P.vy=3}
+  if(kind==='ash'){P.ash=0;P.alt=Math.min(14,Math.max(P.alt,ashTop(dist)+1));P.vy=2}
+  if(kind==='crater'){P.alt=Math.max(P.alt,terrain(dist)+2);P.vy=3}
+  if(kind==='poop')P.poop=0;
+  if(kind==='scylla'||kind==='charybdis'){P.alt=Math.max(P.alt,9.2);P.vy=2}
+  for(let i=0;i<18;i++)parts.push({x:W*.26,y:altY(P.alt),vx:(Math.random()-.5)*FT*8,vy:-FT*Math.random()*5,life:.8,k:'gold'});
+}
+
+const altY=a=>H-a*FT;
+const scroll=()=>FT*3;                 // world scroll speed in px/s
+const pxPerSt=()=>scroll()/SPEED;      // pixels per stadion
+const worldX=s=>W*.26+(s-dist)*pxPerSt();
+const atX=x=>dist+(x-W*.26)/pxPerSt(); // stadia position under a screen x
+// Thera's shape: the ground height (ft) and the top of the ash cloud (ft) at a route position
+function terrain(s){const d=Math.abs(s-VX);if(d>26)return 0;return Math.max(1.6,6.6*Math.max(0,1-d/11))}
+function ashTop(s){const b=VX-s;if(b<-3||b>34)return 0;if(b>30)return 7.2*(34-b)/4;return 7.2+.8*Math.max(0,1-b/30)}
+
+function update(dt){
+  t+=dt;if(flash>0)flash=Math.max(0,flash-dt*2.5);
+  for(const f of floats){f.y-=FT*1.2*dt;f.life-=dt}floats=floats.filter(f=>f.life>0);
+  for(const p of parts){p.vy+=FT*(p.k==='gold'&&state==='landing'?4:12)*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.life-=dt}
+  parts=parts.filter(p=>p.life>0);
+  if(state==='landing'){
+    // gliding down onto Sicily's plateau
+    landT+=dt;
+    P.alt+=(3.9-P.alt)*Math.min(1,dt*2);P.vy=0;P.flap=Math.max(0,P.flap-dt*2);
+    D.alt+=(3.9-D.alt)*Math.min(1,dt*1.8);D.vy=0;
+    storm+=(0-storm)*Math.min(1,dt);
+    for(const k of EVKEYS)ev[k]+=(0-ev[k])*Math.min(1,dt*1.5);
+    if(bubble){bubble.life-=dt;if(bubble.life<=0)bubble=null}
+    if(landT>1.2&&!flags.burst){flags.burst=1;for(let i=0;i<70;i++)parts.push({x:W*(.26+Math.random()*.3),y:altY(4+Math.random()*2),vx:(Math.random()-.5)*FT*10,vy:-FT*(2+Math.random()*7),life:2+Math.random(),k:'gold'})}
+    if(landT>3)end('win');
+    return;
+  }
+  if(state!=='playing')return;
+  const prevStage=stage;
+  dist+=SPEED*dt;
+  if(dist>=TOTAL){dist=TOTAL;state='landing';landT=0;banner={txt:'Welcome to Sicily',sub:'Icarus and Daedalus land safely',life:3};say('We made it, my son! Sicily!',true);Snd.win();return}
+  stage=stageAt(dist);
+  if(stage!==prevStage){
+    const S=STAGES[stage];banner=legBanner();
+    // events new on this leg come up first
+    if(S.storm)deck=[];else{const prev=STAGES[prevStage].weather,fresh=S.weather.filter(k=>!prev.includes(k)).sort(()=>Math.random()-.5);deck=deck.filter(k=>!fresh.includes(k)).concat(fresh)}
+    say(S.say,true);Snd.chime();Snd.stormSea(S.storm?1:0);
+    if(S.storm){shieldIn=.6;flash=1;Snd.thunder()}
+    else if(STAGES[prevStage].storm)say('The storm has passed! Well flown, Icarus!',true);
+  }
+  const S=STAGES[stage],legProg=(dist-legStart(stage))/S.len;
+  const inVolcano=dist>V_IN&&dist<V_OUT;
+  const inChar=dist>C_IN&&dist<C_OUT;
+  const clear=dist>TOTAL-CLEAR;
+  const scyOn=dist>SCY_IN&&dist<SCY_OUT;
+
+  // storm approaching: dark clouds build at the end of the leg before the storm
+  // storm approaching: the end of any leg that leads into a storm
+  stormWarn=STAGES[stage+1]&&STAGES[stage+1].storm?Math.max(0,Math.min(1,(dist-(BOUNDS[stage]-WARN))/WARN)):0;
+  if(stormWarn>0){
+    if(!flags['w'+stage]){flags['w'+stage]=1;banner={txt:'Storm approaching',sub:"Rain will soak your feathers. Athena's shields will keep you dry.",life:3.6};say('A storm is coming from the west! Be ready!',true);Snd.rumble()}
+    if(Math.random()<dt*.5)Snd.rumble();
+  }
+  // volcano ahead
+  if(dist>VX-62&&!flags.vwarn){flags.vwarn=1;banner={txt:'Volcano ahead',sub:"Thera is erupting. Fly above the ash cloud and dodge the fire.",life:3.6};say("Thera's ash! Climb above the smoke!",true);Snd.rumble()}
+  if(inVolcano&&Math.random()<dt*.6)Snd.rumble();
+  if(dist>C_IN-14&&!flags.cwarn){flags.cwarn=1;banner={txt:'The Whirlpool of Charybdis',sub:'She drags you down and spits the sea up. Stay high and dodge the spouts.',life:3.6};say('Charybdis! Beat your wings, she will pull you down!',true);Snd.roar()}
+  if(dist>C_OUT&&!flags.cdone){flags.cdone=1;say('We escaped Charybdis! Well flown!',true);Snd.chime()}
+  if(inChar&&Math.random()<dt*.8)Snd.splash();
+  // final approach
+  if(clear&&!flags.clear){flags.clear=1;banner={txt:'Sicily in sight',sub:'The storm clears. But Scylla guards the strait ahead...',life:3.4};say('The sun is back! There is Sicily!',true);Snd.chime()}
+  if(scyOn&&!flags.scy){flags.scy=1;banner={txt:'The Strait of Scylla',sub:'Six heads rise from the sea. Fly above their jaws.',life:3.6};say('Scylla! Stay high, above her heads!',true);Snd.roar()}
+  if(dist>SCY_OUT&&!flags.scyDone){flags.scyDone=1;say('We are past Scylla! Sicily, my son!',true);Snd.chime()}
+  storm+=((S.storm&&!clear?1:0)-storm)*Math.min(1,dt*.8);
+  sayCd-=dt;if(bubble){bubble.life-=dt;if(bubble.life<=0)bubble=null}
+  if(banner){banner.life-=dt;if(banner.life<=0)banner=null}
+
+  // hazard turns
+  const startWeather=()=>{
+    ev.kind=nextWeather(S);
+    phase.left=ev.kind==='hot'||ev.kind==='cold'?6:6.5;
+    say(EVTXT[ev.kind],true);(ev.kind==='cloud'||ev.kind==='tide')?Snd.chime():Snd.wind();gustIn=.8;
+    if(ev.kind==='cloud'){spawnIn=.4;Snd.gull()}   // cloud cover brings a flock of gulls
+    if(ev.kind==='tide'){fishIn=.4;Snd.splash()}   // low tide brings the fish up
+  };
+  if(S.storm){
+    // storm: rain and lightning all the time, with storm surges (high tide) and gusts in between
+    const pk=clear?(scyOn?'scylla':'clear'):'storm';if(phase.kind!==pk){phase={kind:pk,left:999,idx:-1};ev.kind=null}
+    if(!clear){
+      if(ev.kind){ev.left-=dt;if(ev.left<=0)ev.kind=null}
+      else if(ev.high+ev.tide<.04){stormEvIn-=dt;if(stormEvIn<=0){ev.kind=nextWeather(S);ev.left=5;say(ev.kind==='high'?'A storm surge! The waves are rising!':EVTXT.gusty,true);Snd.wind();gustIn=.6;stormEvIn=5+Math.random()*3}}
+    }else ev.kind=null;
+  }else if(inVolcano||inChar){
+    const zk=inVolcano?'volcano':'charybdis';
+    if(phase.kind!==zk){phase={kind:zk,left:999,idx:phase.idx};ev.kind=null}
+  }else{
+    if(phase.kind==='volcano'||phase.kind==='charybdis'||phase.kind==='storm'||phase.kind==='clear'){phase={kind:'rest',left:1.2,idx:phase.idx}}
+    phase.left-=dt;
+    if(phase.left<=0){
+      if(phase.kind!=='rest'){phase={kind:'rest',left:1,idx:phase.idx};ev.kind=null}
+      else{
+        const cyc=S.fish?['weather','birds','weather','fish']:['weather','birds'];
+        const idx=(phase.idx+1)%cyc.length,k=cyc[idx];
+        phase={kind:k,left:7,idx};
+        if(k==='weather')startWeather();
+        else if(k==='birds'){say('Gulls ahead! Watch for their droppings!',true);Snd.gull();spawnIn=.3}
+        else{say(S.fish.fly>.5?'Flying fish! They glide high above the waves!':'The fish are jumping! Stay clear of the water!',true);Snd.splash();fishIn=.3}
+      }
+    }
+  }
+  for(const k of EVKEYS)ev[k]+=((ev.kind===k?1:0)-ev[k])*Math.min(1,dt*1.5);
+  lim.hi=BASE_HI+2*ev.cloud-2.5*ev.hot;                  // cloud cover lifts the sun line; hot wind lowers it
+  lim.lo=BASE_LO-2*ev.tide+1.5*ev.high+2.5*ev.cold;      // low tide lowers the sea line; high tide and cold wind raise it
+
+  // Icarus physics (altitude in feet, up is +)
+  let g=-8-1.2*P.poop; // heavier wings fall faster
+  if(inChar)g-=3.2*Math.max(0,1-Math.abs(dist-CX)/22); // Charybdis's pull, strongest right over the whirlpool
+  if(gust){g+=gust.f;gust.life-=dt;if(gust.life<=0)gust=null}
+  P.vy+=g*dt;P.vy=Math.max(-9,Math.min(7.5,P.vy));
+  P.alt+=P.vy*dt;P.flap=Math.max(0,P.flap-dt*3);
+  if(P.alt>=15){P.alt=15;if(lose('sun'))return}
+  if(P.alt<=0.6){P.alt=0.6;if(lose('sea'))return}
+  P.inv=Math.max(0,P.inv-dt);
+  if(P.shield>0){P.shield=Math.max(0,P.shield-dt);if(P.shield===0)say('Your shield has faded away. Find another!',true);else if(P.shield<4)say('Your shield is fading!')}
+  if(inVolcano&&P.alt<terrain(dist)+.3){if(lose('crater'))return}
+
+  // danger meters: 1.5 ft caution strip fills slowly (~2 s), beyond it fast (under 1 s)
+  const over=P.alt-lim.hi,under=lim.lo-P.alt,raining=storm>.3&&P.shield<=0;
+  if(over>0){P.heat+=dt*(over<CAUTION?.35:1);say(ev.kind==='hot'?'The hot wind! Get lower!':'Too high, Icarus! The wax!')}else P.heat=Math.max(0,P.heat-dt*.9);
+  if(under>0){P.wet+=dt*(under<CAUTION?.35:1);say(ev.kind==='cold'?'The cold wind! Get higher!':ev.kind==='high'?'The waves are rising! Get higher!':'Too low! The spray will soak you!')}
+  else if(!raining)P.wet=Math.max(0,P.wet-dt*.9);
+  // rain: the warm upper half of the safe zone dries the wings quickly; the cold lower half soaks them fast
+  if(raining&&under<=0){
+    const warm=P.alt>=(lim.lo+lim.hi)/2;
+    if(warm)P.wet=Math.max(0,P.wet-dt*.3);
+    else{P.wet+=dt*.18*storm;if(P.wet>.35)say('The rain is soaking you! Fly up into the warm air!')}
+  }
+  // ash cloud
+  if(P.alt<ashTop(dist)){P.ash+=dt*.8;if(Math.random()<dt*3)Snd.cough();say('The ash! Climb above the smoke!')}else P.ash=Math.max(0,P.ash-dt*.8);
+  if(P.heat>=1){if(lose('sun'))return}
+  if(P.wet>=1){if(lose(raining&&under<=0?'rain':'sea'))return}
+  if(P.ash>=1){if(lose('ash'))return}
+
+  // gusts
+  if(ev.kind==='gusty'){
+    gustIn-=dt;
+    if(gustIn<=0){const up=Math.random()<.5;gust={f:up?6:-6,life:1,up};gustIn=1.4+Math.random()*1.2;Snd.gust();say(up?'An updraft! Dive a little!':'A downdraft! Beat your wings!',true)}
+  }
+
+  const px=W*.26,py=altY(P.alt);
+  // Athena's shields appear all through the flight (more often in and just before the storm).
+  // A shield is kept until it is used: it saves Icarus once from anything, then it is gone.
+  const every=clear?(scyOn?[6,2]:null):S.storm?[5,2]:stormWarn>0?[4,2]:[7,3];
+  if(every){
+    shieldIn-=dt;
+    if(shieldIn<=0){
+      const lo=lim.lo+.5,hi=lim.hi-.5,edge=Math.random()<.3;
+      pickups.push({x:W+30,alt:edge?(Math.random()<.5?hi+.6:lo-.6):lo+Math.random()*Math.max(.2,hi-lo),ph:Math.random()*6});
+      shieldIn=every[0]+Math.random()*every[1];
+    }
+  }
+  for(const s of pickups){
+    s.x-=scroll()*dt;s.ph+=dt*3;
+    if(Math.hypot(s.x-px,altY(s.alt)-py)<FT*.7){
+      s.taken=true;P.shield=P.shieldMax=S.storm?14:20;Snd.shield();
+      shieldsGot++;score+=10;floats.push({x:s.x,y:altY(s.alt),life:1.2}); // each shield is worth 10 points // slow timer: 20 s, 14 s in the storm
+      if(P.poop>0){P.poop--;say("Athena's shield washed a dropping off your wings!",true)}
+      else say(S.storm?"Athena's shield! It keeps the rain off and will save you once.":"Athena's shield! For 20 seconds it will save you once.",true);
+      for(let i=0;i<12;i++)parts.push({x:s.x,y:altY(s.alt),vx:(Math.random()-.5)*FT*6,vy:-FT*Math.random()*4,life:.6,k:'gold'});
+    }
+  }
+  pickups=pickups.filter(s=>!s.taken&&s.x>-40);
+
+  // gulls: in their own turn, and in bigger numbers under cloud cover. Never in the storm or over the volcano.
+  spawnIn-=dt;
+  const gullsOn=(phase.kind==='birds'||ev.kind==='cloud')&&S.gull;
+  if(spawnIn<=0&&gullsOn){
+    gulls.push({x:W+40,alt:3.5+Math.random()*9,v:(1+Math.random()*.9)*FT*4,ph:Math.random()*6,drift:(Math.random()-.5)*1.4,poopCd:Math.random()<.6?Math.random()*.4:999});
+    if(Math.random()<.6)Snd.gull();
+    spawnIn=Math.max(.5,(S.gull[0]+Math.random()*S.gull[1]-legProg*.4)*(ev.kind==='cloud'?.6:1));
+  }
+  for(const gl of gulls){
+    gl.x-=(gl.v+scroll())*dt;gl.alt+=gl.drift*dt;gl.ph+=dt*9;
+    const dx=gl.x-px,dy=altY(gl.alt)-py;
+    if(Math.hypot(dx,dy)<FT*.45){gl.dead=true;if(hit('gull'))return}
+    if(dx>0&&dx<FT*7&&Math.abs(gl.alt-P.alt)<1.3)say('Gull ahead! Rise or dive!');
+    gl.poopCd-=dt;
+    if(gl.poopCd<=0&&gl.alt>P.alt+1&&dx>FT&&dx<FT*8){
+      droppings.push({x:gl.x,alt:gl.alt-.2,vx:-(gl.v*.3+scroll()),vy:0});
+      gl.poopCd=2.5+Math.random()*1.5;say('Droppings from above! Move!');
+    }
+  }
+  gulls=gulls.filter(g=>!g.dead&&g.x>-60);
+  for(const dr of droppings){
+    dr.x+=dr.vx*dt;dr.vy-=12*dt;dr.alt+=dr.vy*dt;
+    if(Math.hypot(dr.x-px,altY(dr.alt)-py)<FT*.5){
+      dr.dead=true;
+      if(P.shield>0||P.inv>0){say('Your shield brushed the dropping away!')}
+      else{
+        P.poop++;Snd.splat();
+        for(let i=0;i<8;i++)parts.push({x:px,y:py,vx:(Math.random()-.5)*FT*4,vy:-FT*Math.random()*3,life:.5,k:'poop'});
+        if(P.poop>=3){if(lose('poop'))return}
+        say(P.poop===1?'A dropping on your wing! It feels heavier.':'Another one! One more and you will sink!',true);
+      }
+    }
+  }
+  droppings=droppings.filter(dr=>!dr.dead&&dr.alt>.5&&dr.x>-20);
+
+  // fish (only in their turn): leapers jump in an arc, flying fish glide high for a moment
+  // fish also come up in bigger numbers at low tide (even on the first leg)
+  const FS=S.fish||(ev.kind==='tide'&&!S.storm?{every:[1.6,1],fly:.15}:null);
+  if((phase.kind==='fish'||ev.kind==='tide')&&FS){
+    fishIn-=dt;
+    if(fishIn<=0){
+      const fly=Math.random()<FS.fly;
+      const peak=fly?5.5+Math.random()*3:3.5+Math.random()*(stage>=2?3.2:2.5);
+      fishes.push({x:W*(.45+Math.random()*.5),alt:1.2,vy:Math.sqrt(2*14*(peak-1.2)),warn:.8,air:false,peak,rot:0,fly,glide:fly?1.1+Math.random()*.8:0,fl:0});
+      fishIn=(FS.every[0]+Math.random()*FS.every[1])*(ev.kind==='tide'?.8:1.1);
+    }
+  }
+  for(const f of fishes){
+    f.x-=scroll()*dt;
+    if(!f.air){
+      f.warn-=dt;if(f.warn<=0){f.air=true;Snd.splash()}
+      if(f.x>px&&f.x-px<FT*6)say('Fish leaping below!');
+    }else{
+      f.fl+=dt*20;
+      if(f.fly&&f.vy<=0&&f.glide>0){f.glide-=dt;f.x-=FT*4*dt;f.alt-=.5*dt;f.rot=0}
+      else{f.x-=FT*1.5*dt;f.vy-=14*dt;f.alt+=f.vy*dt;f.rot=Math.atan2(-f.vy,-4.5)}
+      if(Math.hypot(f.x-px,altY(f.alt)-py)<FT*.38){f.done=true;if(hit('fish'))return}
+      if(f.alt<1&&f.vy<0){f.done=true;for(let i=0;i<8;i++)parts.push({x:f.x,y:altY(1),vx:(Math.random()-.5)*FT*3,vy:-FT*(3+Math.random()*4),life:.6,k:'spray'});Snd.splash()}
+    }
+  }
+  fishes=fishes.filter(f=>!f.done&&f.x>-40);
+
+  // lightning (storm, until it clears)
+  if(S.storm&&!clear){
+    boltIn-=dt;
+    if(boltIn<=0){bolts.push({x:W+60,tip:7.2+Math.random()*3.8,jag:[],jt:0});boltIn=3.1+Math.random()*1.7;flash=1;Snd.thunder();say('Lightning ahead! Fly beneath it!')}
+  }
+  for(const b of bolts){
+    b.x-=scroll()*dt;b.jt-=dt;
+    if(!b.dead&&Math.abs(b.x-px)<FT*.35&&P.alt>b.tip-.25){b.dead=true;if(hit('bolt'))return}
+  }
+  bolts=bolts.filter(b=>!b.dead&&b.x>-80);
+
+  // Thera's fire: the crater glows, then flings a burning rock up and toward Icarus
+  const cx=worldX(VX);
+  if(dist>VX-50&&dist<VX+6&&cx<W+FT*2&&cx>W*.3){
+    rockIn-=dt;
+    if(rockIn<=0){rocks.push({x:cx,alt:6.6,vx:-(FT*2+Math.random()*FT*4),vy:7+Math.random()*4,warn:.5});rockIn=1+Math.random()*.7}
+  }
+  for(const r of rocks){
+    r.x-=scroll()*dt;
+    if(r.warn>0){r.warn-=dt;if(r.warn<=0)Snd.fire();continue}
+    r.x+=r.vx*dt;r.vy-=7*dt;r.alt+=r.vy*dt;
+    if(Math.random()<.6)parts.push({x:r.x+FT*.2,y:altY(r.alt),vx:FT*.5,vy:-FT*.5,life:.5,k:'ember'});
+    if(Math.hypot(r.x-px,altY(r.alt)-py)<FT*.4){r.dead=true;if(hit('lava'))return}
+    if(r.alt<terrain(atX(r.x))||r.alt<1)r.dead=true;
+  }
+  rocks=rocks.filter(r=>!r.dead&&r.x>-40);
+
+  // Scylla's heads: a dark swirl warns, then a head on a long neck shoots up, snaps its jaws, and sinks back
+  if(scyOn){
+    headIn-=dt;
+    const lastH=heads[heads.length-1];
+    if(headIn<=0&&heads.length<3&&(!lastH||Math.abs(lastH.x-(px+FT*2))>FT*4)){
+      // most heads now strike close to Icarus, aimed just above his height, with only a short warning
+      const aim=Math.random()<.75;
+      // aimed heads start just ahead, so the scrolling sea carries them right under Icarus as they strike
+      const hx=aim?px+FT*(1.4+Math.random()*1.6):W*(.32+Math.random()*.5);
+      const pk=aim?Math.min(9,P.alt+.3+Math.random()*.5):4.5+Math.random()*3;
+      heads.push({x:hx,peak:Math.max(4,pk),st:'warn',tm:aim?.6:.7,alt:1,ph:Math.random()*6,aim});
+      headIn=1.25+Math.random()*.5;   // a clear gap between heads
+    }
+  }
+  for(const h of heads){
+    h.x-=scroll()*dt;h.ph+=dt*12;
+    if(h.st==='warn'){h.tm-=dt;if(Math.abs(h.x-px)<FT*4)say("Scylla is right below you! Climb!",true);if(h.tm<=0){h.st='rise';Snd.roar();if(h.aim)h.peak=Math.max(4,Math.min(9,P.alt+.35+Math.random()*.4))}continue}
+    if(h.st==='rise'){h.alt+=22*dt;if(h.alt>=h.peak){h.alt=h.peak;h.st='hold';h.tm=.4}}
+    else if(h.st==='hold'){h.tm-=dt;if(h.tm<=0)h.st='sink'}
+    else{h.alt-=16*dt;if(h.alt<=1)h.done=true}
+    const hx=h.x+Math.sin(h.ph*.2)*FT*.3;
+    if(Math.hypot(hx-px,altY(h.alt)-py)<FT*.55||(Math.abs(h.x-px)<FT*.32&&P.alt<h.alt)){h.done=true;if(hit('scylla'))return}
+  }
+  heads=heads.filter(h=>!h.done&&h.x>-60);
+
+  // Charybdis's spouts: a churning ring warns, then a column of sea shoots up near Icarus and collapses
+  if(inChar){
+    spoutIn-=dt;
+    const lastSp=spouts[spouts.length-1];
+    if(spoutIn<=0&&spouts.length<3&&(!lastSp||Math.abs(lastSp.x-(px+FT*2))>FT*4)){
+      const aim=Math.random()<.75;
+      spouts.push({x:aim?px+FT*(1.4+Math.random()*1.6):W*(.32+Math.random()*.55),peak:aim?Math.min(9,P.alt+.3+Math.random()*.5):4.5+Math.random()*3,st:'warn',tm:aim?.6:.7,top:1,aim});
+      spoutIn=1.25+Math.random()*.5;   // a clear gap between spouts
+    }
+  }
+  for(const sp of spouts){
+    sp.x-=scroll()*dt;
+    if(sp.st==='warn'){sp.tm-=dt;if(Math.abs(sp.x-px)<FT*4)say('A spout is coming up under you! Climb!',true);if(sp.tm<=0){sp.st='rise';Snd.splash();if(sp.aim)sp.peak=Math.max(4,Math.min(9,P.alt+.35+Math.random()*.4))}continue}
+    if(sp.st==='rise'){sp.top+=20*dt;if(sp.top>=sp.peak){sp.top=sp.peak;sp.st='hold';sp.tm=.45}}
+    else if(sp.st==='hold'){sp.tm-=dt;if(sp.tm<=0)sp.st='fall'}
+    else{sp.top-=14*dt;if(sp.top<=1)sp.done=true}
+    if(Math.abs(sp.x-px)<FT*.45&&P.alt<sp.top+.2){sp.done=true;if(hit('charybdis'))return}
+  }
+  spouts=spouts.filter(sp=>!sp.done&&sp.x>-60);
+
+  // Daedalus picks a safe line ahead and leaves a trail
+  const dx=W*.56,ds=atX(dx);
+  let target=(lim.hi+lim.lo)/2+Math.sin(t*.7)*.6;
+  if(storm>.3&&P.shield<=0)target=Math.max(target,(lim.lo+lim.hi)/2+.9);
+  if(storm>.3&&P.shield<4){let n=null;for(const s of pickups)if(s.x>dx&&(!n||s.x<n.x))n=s;if(n)target=n.alt}
+  for(const f of fishes)if(Math.abs(f.x-dx)<FT*4)target=Math.max(target,f.peak+1.1);
+  for(const b of bolts)if(b.x>dx-FT*2&&b.x<dx+FT*9)target=Math.min(target,b.tip-1.7);
+  for(const r of rocks)if(r.warn<=0&&Math.abs(r.x-dx)<FT*5&&Math.abs(r.alt-target)<1.5)target+=r.alt>target?-1.4:1.4;
+  for(const h of heads)if(Math.abs(h.x-dx)<FT*4)target=Math.max(target,h.peak+1.2);
+  for(const sp of spouts)if(Math.abs(sp.x-dx)<FT*4)target=Math.max(target,sp.peak+1.2);
+  for(const gl of gulls)if(Math.abs(gl.x-dx)<FT*3&&Math.abs(gl.alt-target)<1.2)target+=gl.alt>target?-1.4:1.4;
+  const floor=Math.max(ashTop(ds),ashTop(ds+8),terrain(ds)+.6,terrain(ds+8)+.6);
+  target=Math.max(lim.lo+.5,Math.min(lim.hi-.5,target));
+  if(floor>0)target=Math.max(target,Math.min(lim.hi-.3,floor+1));
+  const dv=(target-D.alt)*Math.min(1,dt*2);D.alt+=dv;D.vy=dt>0?dv/dt:0;
+  trailIn-=dt;if(trailIn<=0){trail.push({x:dx,alt:D.alt});trailIn=.1}
+  for(const p of trail)p.x-=scroll()*dt;
+  trail=trail.filter(p=>p.x>-10);
+
+  // particles
+  if(P.heat>.15&&Math.random()<P.heat*.9)parts.push({x:px-FT*.3+Math.random()*FT*.4,y:py,vx:-FT*2,vy:0,life:1,k:'drip'});
+  if(P.wet>.1&&Math.random()<P.wet)parts.push({x:px+(Math.random()-.5)*FT,y:altY(1),vx:-FT*2,vy:-FT*(4+Math.random()*3),life:.8,k:'spray'});
+  for(const i of isles){i.x-=dt*.02;if(i.x<-.3){i.x=1.3;i.s=.6+Math.random()*.8}}
+}
+
+/* ---------- drawing ---------- */
+const fmt=a=>{const r=Math.round(a*2)/2;return r%1?r.toFixed(1):String(r)};
+function draw(){
+  if(!W)return;
+  const vNear=Math.max(0,1-Math.abs(dist-VX+10)/55);
+  // sky
+  let g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'#fff3cf');g.addColorStop(.2,'#f8c879');g.addColorStop(.45,'#9fc7d6');g.addColorStop(.7,'#5f9cb3');g.addColorStop(1,'#1d4f6a');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // sun
+  const sx=W*.72,sy=-FT*.6,sr=FT*2.6;
+  let rg=ctx.createRadialGradient(sx,sy,sr*.3,sx,sy,sr*3.4);
+  rg.addColorStop(0,'rgba(255,240,190,1)');rg.addColorStop(.3,'rgba(255,184,77,.55)');rg.addColorStop(1,'rgba(255,174,61,0)');
+  ctx.fillStyle=rg;ctx.fillRect(0,0,W,H*.5);
+  ctx.save();ctx.translate(sx,sy);ctx.rotate(t*.05);ctx.strokeStyle='rgba(255,196,90,.35)';ctx.lineWidth=FT*.12;
+  for(let i=0;i<16;i++){ctx.rotate(Math.PI/8);ctx.beginPath();ctx.moveTo(sr*1.15,0);ctx.lineTo(sr*1.7+Math.sin(t*2+i)*FT*.2,0);ctx.stroke()}
+  ctx.restore();
+  ctx.fillStyle='#fff6d8';ctx.beginPath();ctx.arc(sx,sy,sr,0,7);ctx.fill();
+  // clouds drifting over the sun
+  if(ev.cloud>.01){
+    ctx.globalAlpha=ev.cloud*.92;ctx.fillStyle='#e9eef2';
+    for(let i=0;i<7;i++){const cx=sx-sr*2.2+i*sr*.75+Math.sin(t*.6+i)*FT*.3,cy=FT*(.6+(i%3)*.45);ctx.beginPath();ctx.arc(cx,cy,sr*(.55+(i%2)*.25),0,7);ctx.fill()}
+    ctx.fillStyle='#c9d4dc';ctx.fillRect(sx-sr*2.6,FT*1.5,sr*5.2,FT*.35);
+    ctx.globalAlpha=1;
+  }
+  // storm approaching: dark wall building on the right horizon
+  if(stormWarn>.01){
+    const sg=ctx.createLinearGradient(W*.35,0,W,0);sg.addColorStop(0,'rgba(22,28,46,0)');sg.addColorStop(1,'rgba(22,28,46,'+(.7*stormWarn)+')');
+    ctx.fillStyle=sg;ctx.fillRect(0,0,W,H);
+    ctx.fillStyle='rgba(42,49,66,'+(.85*stormWarn)+')';
+    for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(W*(1.02-.08*i*stormWarn),FT*(1+(i%2)*.6),FT*(1.6+(i%3)*.4),0,7);ctx.fill()}
+  }
+  // storm darkness
+  if(storm>.01){ctx.fillStyle='rgba(22,28,46,'+(.55*storm)+')';ctx.fillRect(0,0,W,H)}
+  // volcano haze
+  if(vNear>.01){ctx.fillStyle='rgba(90,50,40,'+(.25*vNear)+')';ctx.fillRect(0,0,W,H)}
+  // hot / cold wind tint
+  const tw=Math.max(ev.hot,ev.cold),isHot=ev.hot>=ev.cold;
+  if(tw>.01){ctx.fillStyle=isHot?'rgba(255,120,40,'+(.12*tw)+')':'rgba(150,210,255,'+(.14*tw)+')';ctx.fillRect(0,0,W,H)}
+  // danger tints, softer caution strips right beside each line
+  ctx.fillStyle='rgba(255,110,40,'+(.14-.08*ev.cloud)+')';ctx.fillRect(0,0,W,altY(lim.hi+CAUTION));
+  ctx.fillStyle='rgba(255,170,70,.10)';ctx.fillRect(0,altY(lim.hi+CAUTION),W,CAUTION*FT);
+  // distant islands
+  ctx.fillStyle='rgba(40,85,110,.45)';
+  for(const i of isles){const x=i.x*W,base=altY(2.2);ctx.beginPath();ctx.moveTo(x-FT*3*i.s,base);ctx.quadraticCurveTo(x,base-FT*1.6*i.s,x+FT*3*i.s,base);ctx.fill()}
+  // route islands at the end of each leg, Thera midway, Sicily at the end
+  for(let i=0;i<BOUNDS.length-1;i++){const ix=worldX(BOUNDS[i]);if(ix>-FT*8&&ix<W+FT*8)drawIsland(ix,STAGES[i].b)}
+  const tx=worldX(VX);if(tx>-FT*14&&tx<W+FT*14)drawThera(tx);
+  const lx=worldX(TOTAL-50);if(lx>-FT*8&&lx<W+FT*8)drawLair(lx);
+  const sxx=worldX(TOTAL);if(sxx<W+FT*20)drawSicily(sxx);
+  // sea caution and danger tints
+  ctx.fillStyle='rgba(120,210,240,.12)';ctx.fillRect(0,altY(lim.lo),W,CAUTION*FT);
+  ctx.fillStyle='rgba(20,90,130,.22)';ctx.fillRect(0,altY(lim.lo-CAUTION),W,H-altY(lim.lo-CAUTION));
+  // fish ripples (warnings) sit on the water
+  for(const f of fishes)if(!f.air){
+    const k=1-f.warn/.8;ctx.strokeStyle='rgba(255,255,255,'+(.4+.5*k)+')';ctx.lineWidth=2;
+    ctx.beginPath();ctx.ellipse(f.x,altY(1.6+ev.high*1.3-ev.tide*1.1),FT*(.3+.5*k),FT*(.08+.12*k),0,0,7);ctx.stroke();
+  }
+  // waves: lower at low tide, higher at high tide, taller in the storm
+  const layers=[['#2b7d9c',1.9,.35,1.1],['#1f6383',1.45,.45,1.6],['#164c69',1.0,.5,2.2]];
+  layers.forEach(([c,base,amp,sp],k)=>{
+    const A=amp*(1+storm*.7+ev.high*.5);
+    ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(0,H);
+    for(let x=0;x<=W+10;x+=8){const a=base-ev.tide*1.1+ev.high*1.3+Math.sin(x/(FT*1.3)+t*sp+k)*A+Math.sin(x/(FT*.5)-t*sp*1.7)*A*.3+P.wet*.8;ctx.lineTo(x,altY(a))}
+    ctx.lineTo(W,H);ctx.fill();
+  });
+  // Scylla's coils moving under the water while crossing the strait
+  if(dist>SCY_IN-6&&dist<SCY_OUT){
+    const a=Math.min(1,(dist-SCY_IN+6)/6,(SCY_OUT-dist)/4);
+    for(let i=0;i<4;i++){
+      const cx=((i*W*.31+t*FT*1.6)%(W+FT*4))-FT*2,cy=altY(1.15)+Math.sin(t*2+i)*FT*.08;
+      ctx.fillStyle='rgba(28,48,44,'+(.85*a)+')';ctx.beginPath();ctx.ellipse(cx,cy,FT*1.1,FT*.42,0,Math.PI,0);ctx.fill();
+      ctx.fillStyle='rgba(95,127,106,'+(.6*a)+')';for(let j=0;j<3;j++){ctx.beginPath();ctx.moveTo(cx-FT*.5+j*FT*.45,cy-FT*.32);ctx.lineTo(cx-FT*.35+j*FT*.45,cy-FT*.62);ctx.lineTo(cx-FT*.2+j*FT*.45,cy-FT*.32);ctx.fill()}
+    }
+  }
+  // Charybdis's whirlpool
+  {const wx=worldX(CX);if(wx>-FT*16&&wx<W+FT*16)drawWhirl(wx)}
+  // Thera's ash cloud over the sea
+  if(tx>-FT*20&&worldX(VX-34)<W+FT*2)drawAsh();
+  // leaping fish
+  for(const f of fishes)if(f.air){
+    ctx.save();ctx.translate(f.x,altY(f.alt));ctx.rotate(f.rot);
+    ctx.fillStyle='#9fb9c6';ctx.beginPath();ctx.ellipse(0,0,FT*.42,FT*.17,0,0,7);ctx.fill();
+    if(f.fly){
+      const fw=Math.sin(f.fl)*FT*.06;ctx.fillStyle='rgba(210,232,240,.9)';
+      ctx.beginPath();ctx.moveTo(-FT*.12,0);ctx.lineTo(FT*.12,-FT*.55-fw);ctx.lineTo(FT*.3,-FT*.05);ctx.closePath();ctx.fill();
+      ctx.beginPath();ctx.moveTo(-FT*.12,0);ctx.lineTo(FT*.12,FT*.5+fw);ctx.lineTo(FT*.3,FT*.05);ctx.closePath();ctx.fill();
+    }
+    ctx.fillStyle='#6f8f9f';ctx.beginPath();ctx.moveTo(FT*.35,0);ctx.lineTo(FT*.65,-FT*.2);ctx.lineTo(FT*.65,FT*.2);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#0e1a26';ctx.beginPath();ctx.arc(-FT*.25,-FT*.04,FT*.04,0,7);ctx.fill();
+    ctx.restore();
+  }
+  // band markers
+  marker(lim.hi,'rgba(255,120,50,.9)','SUN LINE · '+fmt(lim.hi)+' FT');
+  marker(lim.lo,'rgba(90,200,230,.95)','SEA LINE · '+fmt(lim.lo)+' FT');
+  ctx.save();ctx.setLineDash([3,6]);ctx.lineWidth=1;
+  ctx.strokeStyle='rgba(255,120,50,.55)';ctx.beginPath();ctx.moveTo(FT*1.1,altY(lim.hi+CAUTION));ctx.lineTo(W,altY(lim.hi+CAUTION));ctx.stroke();
+  ctx.strokeStyle='rgba(90,200,230,.6)';ctx.beginPath();ctx.moveTo(FT*1.1,altY(lim.lo-CAUTION));ctx.lineTo(W,altY(lim.lo-CAUTION));ctx.stroke();
+  ctx.restore();
+  ctx.font='600 '+Math.max(9,FT*.3)+'px Figtree, sans-serif';ctx.textBaseline='middle';
+  ctx.fillStyle='rgba(255,236,200,.85)';ctx.fillText('caution',FT*1.4,altY(lim.hi+CAUTION/2));
+  ctx.fillStyle='rgba(225,245,250,.85)';ctx.fillText('caution',FT*1.4,altY(lim.lo-CAUTION/2));
+  // storm: warm upper half of the band, where rain soaks slowly
+  if(storm>.3){
+    const mid=(lim.lo+lim.hi)/2;
+    ctx.fillStyle='rgba(255,170,90,'+(.12*storm)+')';ctx.fillRect(FT*1.1,altY(lim.hi),W,(lim.hi-mid)*FT);
+    ctx.save();ctx.setLineDash([6,6]);ctx.strokeStyle='rgba(255,200,140,'+(.6*storm)+')';ctx.lineWidth=1;
+    ctx.beginPath();ctx.moveTo(FT*1.1,altY(mid));ctx.lineTo(W,altY(mid));ctx.stroke();ctx.restore();
+    ctx.font='600 '+Math.max(9,FT*.32)+'px Figtree, sans-serif';
+    ctx.fillStyle='rgba(255,226,190,'+(.9*storm)+')';ctx.fillText('warm air · wings dry quickly',FT*1.4,altY(mid+.45));
+    ctx.fillStyle='rgba(200,225,245,'+(.9*storm)+')';ctx.fillText('cold air · rain soaks fast',FT*1.4,altY(mid-.45));
+  }
+  // ruler
+  ctx.fillStyle='rgba(14,26,38,.35)';ctx.fillRect(0,0,FT*1.1,H);
+  ctx.fillStyle='rgba(243,234,214,.85)';ctx.strokeStyle='rgba(243,234,214,.6)';ctx.lineWidth=1;
+  ctx.font=Math.max(9,FT*.36)+'px Figtree, sans-serif';ctx.textBaseline='middle';
+  for(let a=1;a<15;a++){const y=altY(a);ctx.beginPath();ctx.moveTo(FT*1.1-(a%5?FT*.2:FT*.4),y);ctx.lineTo(FT*1.1,y);ctx.stroke();if(a%5===0)ctx.fillText(a+' ft',3,y)}
+  // Daedalus's trail
+  for(const p of trail){const k=Math.max(0,Math.min(1,(p.x-W*.2)/(W*.36)));ctx.fillStyle='rgba(255,246,216,'+(.15+.45*k)+')';ctx.beginPath();ctx.arc(p.x,altY(p.alt),FT*.07,0,7);ctx.fill()}
+  // Athena's shields
+  for(const s of pickups)drawShield(s.x,altY(s.alt)+Math.sin(s.ph)*FT*.15,FT*.42,s.ph);
+  // lightning
+  for(const b of bolts){
+    ctx.fillStyle='#2a3142';
+    for(let i=0;i<4;i++){ctx.beginPath();ctx.arc(b.x-FT*1.2+i*FT*.8,FT*(.4+(i%2)*.35),FT*.9,0,7);ctx.fill()}
+    if(b.jt<=0||!b.jag.length){b.jag=[];const top=FT*1.1,bot=altY(b.tip),n=8;for(let i=0;i<=n;i++)b.jag.push([(i&&i<n?(Math.random()-.5)*FT*.7:0),top+(bot-top)*i/n]);b.jt=.07}
+    ctx.save();ctx.lineJoin='round';
+    ctx.strokeStyle='rgba(190,215,255,.35)';ctx.lineWidth=FT*.35;strokeJag(b);
+    ctx.strokeStyle='#f4f7ff';ctx.lineWidth=Math.max(2,FT*.1);strokeJag(b);
+    ctx.restore();
+    ctx.fillStyle='rgba(244,247,255,.9)';ctx.beginPath();ctx.arc(b.x,altY(b.tip),FT*.14,0,7);ctx.fill();
+  }
+  // Scylla's heads
+  for(const h of heads)drawHead(h);
+  for(const sp of spouts)drawSpout(sp);
+  // Thera's flying fire
+  for(const r of rocks){
+    const y=altY(r.alt);
+    if(r.warn>0){const k=1-r.warn/.5;const gg=ctx.createRadialGradient(r.x,y,0,r.x,y,FT*(.8+k));gg.addColorStop(0,'rgba(255,220,120,'+(.5+.5*k)+')');gg.addColorStop(1,'rgba(255,90,30,0)');ctx.fillStyle=gg;ctx.beginPath();ctx.arc(r.x,y,FT*(.8+k),0,7);ctx.fill();continue}
+    const rg2=ctx.createRadialGradient(r.x,y,0,r.x,y,FT*.6);rg2.addColorStop(0,'rgba(255,200,90,.9)');rg2.addColorStop(1,'rgba(255,80,20,0)');
+    ctx.fillStyle=rg2;ctx.beginPath();ctx.arc(r.x,y,FT*.6,0,7);ctx.fill();
+    ctx.fillStyle='#3a1f18';ctx.beginPath();ctx.arc(r.x,y,FT*.28,0,7);ctx.fill();
+    ctx.fillStyle='#ff7a2e';ctx.beginPath();ctx.arc(r.x-FT*.07,y-FT*.06,FT*.11,0,7);ctx.fill();
+  }
+  // gulls
+  ctx.strokeStyle='#1b2a36';ctx.lineWidth=Math.max(2,FT*.09);ctx.lineCap='round';
+  for(const gl of gulls){const x=gl.x,y=altY(gl.alt),w=FT*.5,f=Math.sin(gl.ph)*FT*.25;
+    ctx.beginPath();ctx.moveTo(x-w,y-f);ctx.quadraticCurveTo(x-w*.4,y-FT*.25,x,y);ctx.quadraticCurveTo(x+w*.4,y-FT*.25,x+w,y-f);ctx.stroke()}
+  // falling droppings
+  for(const dr of droppings){const y=altY(dr.alt);ctx.fillStyle='#f4f1e8';ctx.beginPath();ctx.ellipse(dr.x,y,FT*.11,FT*.16,0,0,7);ctx.fill();ctx.fillStyle='#6b6a55';ctx.beginPath();ctx.arc(dr.x,y+FT*.03,FT*.05,0,7);ctx.fill()}
+  // rain
+  if(storm>.05){
+    ctx.strokeStyle='rgba(200,220,240,'+(.4*storm)+')';ctx.lineWidth=1;ctx.beginPath();
+    for(let i=0;i<120;i++){const y=(i*71.3+t*H*1.8)%H,x=((i*131.7)%(W+H*.3))-y*.3;ctx.moveTo(x,y);ctx.lineTo(x-FT*.15,y+FT*.5)}
+    ctx.stroke();
+  }
+  // hot / cold wind streaks
+  if(tw>.01){
+    ctx.strokeStyle=isHot?'rgba(255,160,80,'+(.6*tw)+')':'rgba(205,235,255,'+(.65*tw)+')';ctx.lineWidth=2;ctx.lineCap='round';ctx.beginPath();
+    for(let i=0;i<16;i++){const y=altY(1.5+(i*.83)%12.5)+Math.sin(t*3+i)*FT*.2,len=FT*(1.5+(i%3)),x=W-((t*W*.9+i*W*.37)%(W+len));
+      ctx.moveTo(x,y);ctx.bezierCurveTo(x+len*.3,y-FT*.15,x+len*.6,y+FT*.15,x+len,y)}
+    ctx.stroke();
+  }
+  // particles
+  for(const p of parts){
+    ctx.globalAlpha=Math.max(0,Math.min(1,p.life));
+    ctx.fillStyle=p.k==='drip'?'#f2dfa6':p.k==='gold'?'#ffd36b':p.k==='ember'?'#ff8a3a':p.k==='poop'?'#f4f1e8':'#e6f6fb';
+    ctx.beginPath();ctx.arc(p.x,p.y,p.k==='drip'?FT*.08:p.k==='gold'?FT*.07:FT*.06,0,7);ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // gust streaks
+  if(gust){ctx.strokeStyle='rgba(243,234,214,.35)';ctx.lineWidth=2;for(let i=0;i<5;i++){const x=(i*W/5+t*W*.6)%W,y=altY(3+(i*2.3)%9);ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x-FT*1.2,y+(gust.up?FT*.4:-FT*.4));ctx.stroke()}}
+  // flyers (wings fold as they land)
+  const landed=state==='landing'||state==='won'?Math.min(1,landT/1.5):0;
+  const dX=W*.56,dY=altY(D.alt);
+  drawFlyer(dX,dY,{vy:D.vy,beat:Math.sin(t*7)*.25*(1-landed)+landed*.9,heat:0,wet:0,s:FT*1.05,tunic:'#56697a',hair:'#d8d4cc',skin:'#c8946a',wingCol:'#e8d9b0',belt:'#2e3d4a'});
+  const ix=W*.26,iy=altY(P.alt);
+  if(P.shield>0){
+    const a=Math.min(1,P.shield/4)*(P.shield<4?.6+.4*Math.sin(t*10):1); // fades out over the last 4 s
+    ctx.save();ctx.globalAlpha=.25*a;ctx.fillStyle='#ffd36b';ctx.beginPath();ctx.arc(ix,iy,FT*1.05,0,7);ctx.fill();
+    ctx.globalAlpha=.8*a;ctx.strokeStyle='#ffd36b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(ix,iy,FT*1.05,-Math.PI/2,-Math.PI/2+Math.PI*2*(P.shield/P.shieldMax));ctx.stroke();ctx.restore();
+  }
+  if(!(P.inv>0&&Math.sin(t*30)>0))drawFlyer(ix,iy,{vy:P.vy,beat:(Math.sin(t*10)*(.12-.03*P.poop)+P.flap*.9)*(1-landed)+landed*.9,heat:P.heat,wet:P.wet,poop:P.poop,s:FT*.95,tunic:'#f3ead6',hair:'#3a2414',skin:'#d9a173',wingCol:'#f2dfa6',belt:'#b23a2a'});
+  // ash gauge above Icarus
+  if(P.ash>.02&&state==='playing'){ctx.fillStyle='rgba(14,26,38,.7)';ctx.fillRect(ix-FT*.6,iy-FT*1.4,FT*1.2,FT*.18);ctx.fillStyle='#b8aca4';ctx.fillRect(ix-FT*.6,iy-FT*1.4,FT*1.2*Math.min(1,P.ash),FT*.18);
+    ctx.font='700 '+Math.max(9,FT*.28)+'px Figtree, sans-serif';ctx.textAlign='center';ctx.fillStyle='#f3ead6';ctx.fillText('ASH',ix,iy-FT*1.6);ctx.textAlign='left'}
+  // status chip: what is happening right now
+  let label=null;
+  if(ev.kind)label=EVCHIP[ev.kind]+(ev.kind==='gusty'?'':' · SAFE '+fmt(lim.lo)+'–'+fmt(lim.hi)+' FT');
+  else if(phase.kind==='birds')label='GULLS · WATCH FOR DROPPINGS';
+  else if(phase.kind==='fish')label=STAGES[stage].fish&&STAGES[stage].fish.fly>.5?'FLYING FISH':'FISH LEAPING';
+  else if(phase.kind==='volcano')label='VOLCANO · FLY ABOVE THE ASH';
+  else if(phase.kind==='charybdis')label='CHARYBDIS · STAY HIGH, DODGE THE SPOUTS';
+  else if(phase.kind==='storm')label=P.shield>0?'STORM · SHIELDED':'STORM · NO SHIELD, STAY IN WARM AIR';
+  else if(phase.kind==='scylla')label='SCYLLA · FLY ABOVE THE HEADS';
+  else if(phase.kind==='clear')label='SICILY IN SIGHT';
+  else if(phase.kind==='rest')label='CALM';
+  if(label&&state==='playing'){
+    ctx.font='700 '+Math.max(10,FT*.34)+'px Figtree, sans-serif';ctx.textBaseline='middle';
+    const w=ctx.measureText(label).width+FT*.7,x=FT*1.4,y=FT*.55;
+    ctx.fillStyle=ev.kind==='hot'||phase.kind==='volcano'?'rgba(150,50,20,.85)':ev.kind==='cold'||ev.kind==='high'?'rgba(30,80,120,.85)':'rgba(14,26,38,.78)';
+    rrect(x,y-FT*.32,w,FT*.64,FT*.32);ctx.fill();ctx.fillStyle='#f3ead6';ctx.fillText(label,x+FT*.35,y);
+  }
+  // Daedalus speech bubble
+  if(bubble&&(state==='playing'||state==='landing')){
+    ctx.globalAlpha=Math.min(1,bubble.life*3);
+    ctx.font='600 '+Math.max(11,FT*.4)+'px Figtree, sans-serif';ctx.textBaseline='middle';ctx.textAlign='center';
+    const tw2=ctx.measureText(bubble.txt).width,bw=tw2+FT*.8,bh=FT*.85;
+    let bx=Math.min(W-bw/2-8,Math.max(bw/2+8,dX)),by=dY-FT*1.7;
+    if(by-bh/2<FT*1.1)by=dY+FT*1.7;
+    ctx.fillStyle='rgba(243,234,214,.95)';rrect(bx-bw/2,by-bh/2,bw,bh,bh/2);ctx.fill();
+    ctx.beginPath();const up=by<dY;ctx.moveTo(dX-FT*.15,by+(up?bh/2:-bh/2));ctx.lineTo(dX,by+(up?bh/2+FT*.3:-bh/2-FT*.3));ctx.lineTo(dX+FT*.15,by+(up?bh/2:-bh/2));ctx.fill();
+    ctx.fillStyle='#0e1a26';ctx.fillText(bubble.txt,bx,by);ctx.textAlign='left';ctx.globalAlpha=1;
+  }
+  // banner
+  if(banner&&(state==='playing'||state==='landing')){
+    ctx.globalAlpha=Math.min(1,banner.life*1.5);ctx.textAlign='center';ctx.textBaseline='middle';
+    ctx.font='600 '+Math.max(11,FT*.38)+'px Figtree, sans-serif';
+    const bw=Math.min(W-16,Math.max(FT*12,ctx.measureText(banner.sub).width+FT*1.2));
+    ctx.fillStyle='rgba(14,26,38,.72)';rrect(W/2-bw/2,altY(12.2),bw,FT*2.3,FT*.3);ctx.fill();
+    ctx.fillStyle='#f3ead6';ctx.font=Math.max(18,FT*.85)+'px Marcellus, Georgia, serif';ctx.fillText(banner.txt,W/2,altY(11.5));
+    ctx.fillStyle='#a9b6c2';ctx.font='600 '+Math.max(11,FT*.38)+'px Figtree, sans-serif';ctx.fillText(banner.sub,W/2,altY(10.6));
+    ctx.textAlign='left';ctx.globalAlpha=1;
+  }
+  if(banner&&state==='landing'){banner.life-=1/60}
+  // score: +10 for every shield collected
+  if(state!=='ready'){
+    ctx.font='700 '+Math.max(11,FT*.4)+'px Figtree, sans-serif';ctx.textBaseline='middle';ctx.textAlign='right';
+    const st='LIVES '+'♥'.repeat(lives)+'♡'.repeat(3-lives)+'  ·  SCORE '+score+'  ·  SHIELDS '+shieldsGot,sw=ctx.measureText(st).width+FT*.8;
+    ctx.fillStyle='rgba(14,26,38,.78)';rrect(W-sw-FT*.3,FT*.55-FT*.34,sw,FT*.68,FT*.34);ctx.fill();
+    ctx.fillStyle='#ffd36b';ctx.fillText(st,W-FT*.7,FT*.55);ctx.textAlign='left';
+  }
+  for(const f of floats){ctx.globalAlpha=Math.min(1,f.life*1.5);ctx.font='700 '+Math.max(14,FT*.6)+'px Figtree, sans-serif';ctx.textAlign='center';ctx.fillStyle='#ffd36b';ctx.fillText('+10',f.x,f.y);ctx.textAlign='left';ctx.globalAlpha=1}
+  // flash
+  if(flash>0){ctx.fillStyle='rgba(235,242,255,'+(flash*.45)+')';ctx.fillRect(0,0,W,H)}
+}
+function drawAsh(){
+  // the ash cloud is real: below its top edge Icarus chokes
+  ctx.fillStyle='rgba(62,56,54,.78)';ctx.beginPath();
+  const s0=VX-34,s1=VX+3;ctx.moveTo(worldX(s0),H);
+  for(let s=s0;s<=s1;s+=.5)ctx.lineTo(worldX(s),altY(ashTop(s)+Math.sin(s*1.3+t*2)*.12));
+  ctx.lineTo(worldX(s1),H);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(90,82,78,.8)';
+  for(let s=s0+4;s<=s1;s+=2){const top=ashTop(s);ctx.beginPath();ctx.arc(worldX(s),altY(top)+FT*.15,FT*(.45+.15*Math.sin(s+t*1.5)),0,7);ctx.fill()}
+  // top edge marker
+  ctx.save();ctx.setLineDash([4,5]);ctx.strokeStyle='rgba(230,220,210,.75)';ctx.lineWidth=1.5;ctx.beginPath();
+  for(let s=s0+4;s<=s1;s+=.5){const x=worldX(s),y=altY(ashTop(s)+.25);s===s0+4?ctx.moveTo(x,y):ctx.lineTo(x,y)}ctx.stroke();ctx.restore();
+  const lx=Math.max(FT*2,Math.min(W-FT*6,worldX(VX-16)));
+  ctx.font='700 '+Math.max(9,FT*.32)+'px Figtree, sans-serif';ctx.textBaseline='middle';ctx.textAlign='center';
+  ctx.fillStyle='rgba(14,26,38,.7)';const tw=ctx.measureText('ASH CLOUD · FLY ABOVE').width+FT*.5;rrect(lx-tw/2,altY(ashTop(atX(lx))+.9)-FT*.28,tw,FT*.56,FT*.28);ctx.fill();
+  ctx.fillStyle='#f3ead6';ctx.fillText('ASH CLOUD · FLY ABOVE',lx,altY(ashTop(atX(lx))+.9));ctx.textAlign='left';
+}
+function drawThera(x){
+  const base=1.6;
+  ctx.fillStyle='#4a3a34';ctx.beginPath();ctx.moveTo(worldX(VX-26),altY(1));
+  for(let s=VX-26;s<=VX+26;s+=1)ctx.lineTo(worldX(s),altY(terrain(s)));
+  ctx.lineTo(worldX(VX+26),altY(1));ctx.closePath();ctx.fill();
+  // cone shading and lava streaks
+  ctx.fillStyle='#36292a';ctx.beginPath();ctx.moveTo(worldX(VX),altY(6.6));ctx.lineTo(worldX(VX+11),altY(base));ctx.lineTo(worldX(VX+3),altY(base));ctx.closePath();ctx.fill();
+  ctx.strokeStyle='#ff6a2a';ctx.lineWidth=FT*.12;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(x,altY(6.5));ctx.quadraticCurveTo(x-FT*.6,altY(4.5),x-FT*1.6,altY(2.4));ctx.stroke();
+  ctx.beginPath();ctx.moveTo(x+FT*.1,altY(6.4));ctx.quadraticCurveTo(x+FT*.8,altY(4.8),x+FT*1.4,altY(3.2));ctx.stroke();
+  // crater glow and plume
+  const cy=altY(6.6),gl=ctx.createRadialGradient(x,cy,0,x,cy,FT*1.6);gl.addColorStop(0,'rgba(255,170,60,.95)');gl.addColorStop(1,'rgba(255,80,20,0)');
+  ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,cy,FT*1.6,0,7);ctx.fill();
+  for(let i=0;i<8;i++){const k=((t*.3+i/8)%1);ctx.fillStyle='rgba(70,62,60,'+(.55*(1-k))+')';ctx.beginPath();ctx.arc(x-k*FT*5,cy-k*FT*4.5,FT*(.5+k*1.3),0,7);ctx.fill()}
+  // flames dancing in the crater
+  for(let i=0;i<5;i++){const fx=x+(i-2)*FT*.18,fh=FT*(.4+.35*Math.abs(Math.sin(t*9+i*1.7)));ctx.fillStyle=i%2?'#ffb347':'#ff6a2a';ctx.beginPath();ctx.moveTo(fx-FT*.12,cy);ctx.quadraticCurveTo(fx,cy-fh*1.4,fx+FT*.12,cy);ctx.fill()}
+  label('Thera',x+FT*3.2,altY(4.2),false);
+}
+function drawHead(h){
+  const base=altY(1.4);
+  if(h.st==='warn'){
+    const k=Math.min(1,1-h.tm/.6);ctx.strokeStyle='rgba(20,40,50,'+(.4+.5*k)+')';ctx.lineWidth=3;
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(h.x,base,FT*(.3+.25*i+.3*k),FT*(.08+.05*i),0,0,7);ctx.stroke()}
+    ctx.fillStyle='rgba(230,245,250,.7)';for(let i=0;i<4;i++){const bx=h.x+Math.sin(h.ph+i*2)*FT*.4,by=base-FT*((h.ph*.3+i*.25)%1)*.8;ctx.beginPath();ctx.arc(bx,by,FT*.06,0,7);ctx.fill()}
+    return;
+  }
+  const hx=h.x+Math.sin(h.ph*.2)*FT*.3,hy=altY(h.alt);
+  // long neck
+  ctx.strokeStyle='#2f4a44';ctx.lineWidth=FT*.42;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(h.x,base+FT*.3);ctx.quadraticCurveTo(h.x+FT*.6,(base+hy)/2,hx,hy+FT*.2);ctx.stroke();
+  ctx.strokeStyle='#5f7f6a';ctx.lineWidth=FT*.12;
+  ctx.beginPath();ctx.moveTo(h.x-FT*.1,base+FT*.3);ctx.quadraticCurveTo(h.x+FT*.45,(base+hy)/2,hx-FT*.12,hy+FT*.2);ctx.stroke();
+  // head facing left, jaws snapping
+  const open=h.st==='hold'?(.25+.25*Math.abs(Math.sin(h.ph))):.12;
+  ctx.save();ctx.translate(hx,hy);
+  ctx.fillStyle='#2f4a44';
+  ctx.beginPath();ctx.moveTo(FT*.25,-FT*.2);ctx.lineTo(-FT*.75,-FT*.05-open*FT*.5);ctx.lineTo(-FT*.7,FT*.02);ctx.lineTo(FT*.25,FT*.12);ctx.closePath();ctx.fill();
+  ctx.beginPath();ctx.moveTo(FT*.2,FT*.08);ctx.lineTo(-FT*.65,FT*.1+open*FT*.45);ctx.lineTo(-FT*.6,FT*.2+open*FT*.45);ctx.lineTo(FT*.2,FT*.28);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#f4efe2';
+  for(let i=0;i<4;i++){const tx=-FT*.6+i*FT*.18;ctx.beginPath();ctx.moveTo(tx,FT*.02-open*FT*.35*(1-i/4));ctx.lineTo(tx+FT*.06,FT*.12-open*FT*.35*(1-i/4));ctx.lineTo(tx+FT*.12,FT*.02-open*FT*.35*(1-i/4));ctx.fill()}
+  ctx.fillStyle='#ffcf3a';ctx.beginPath();ctx.arc(-FT*.05,-FT*.12,FT*.07,0,7);ctx.fill();
+  ctx.fillStyle='#0e1a26';ctx.beginPath();ctx.arc(-FT*.06,-FT*.12,FT*.03,0,7);ctx.fill();
+  ctx.fillStyle='#4f6f5e';ctx.beginPath();ctx.moveTo(FT*.15,-FT*.2);ctx.lineTo(FT*.35,-FT*.45);ctx.lineTo(FT*.3,-FT*.15);ctx.fill();
+  ctx.restore();
+}
+function drawWhirl(x){
+  // a wide spiral on the water, darkest at the centre
+  const cy=altY(1.5),R=FT*7;
+  ctx.save();ctx.translate(x,cy);ctx.scale(1,.22);
+  const g=ctx.createRadialGradient(0,0,0,0,0,R);g.addColorStop(0,'rgba(5,20,30,.95)');g.addColorStop(.5,'rgba(15,55,75,.6)');g.addColorStop(1,'rgba(15,55,75,0)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.arc(0,0,R,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(225,242,248,.55)';ctx.lineWidth=FT*.12;
+  for(let k=0;k<3;k++){ctx.beginPath();for(let a=0;a<Math.PI*4;a+=.2){const r=R*(1-a/(Math.PI*4.2)),aa=a+t*2.4+k*2.1;const px=Math.cos(aa)*r,py=Math.sin(aa)*r;a===0?ctx.moveTo(px,py):ctx.lineTo(px,py)}ctx.stroke()}
+  ctx.restore();
+  label('Charybdis',x,altY(3.4),false);
+}
+function drawSpout(sp){
+  const base=altY(1.4);
+  if(sp.st==='warn'){
+    const k=Math.min(1,1-sp.tm/.6);ctx.strokeStyle='rgba(235,248,252,'+(.4+.5*k)+')';ctx.lineWidth=2;
+    for(let i=0;i<3;i++){ctx.beginPath();ctx.ellipse(sp.x,base,FT*(.25+.22*i+.3*k),FT*(.07+.04*i),t*3+i,0,7);ctx.stroke()}
+    return;
+  }
+  const top=altY(sp.top),w=FT*.42;
+  const g=ctx.createLinearGradient(0,top,0,base);g.addColorStop(0,'rgba(235,248,252,.95)');g.addColorStop(1,'rgba(60,150,185,.85)');
+  ctx.fillStyle=g;ctx.beginPath();ctx.moveTo(sp.x-w*1.3,base);
+  for(let y=base;y>top;y-=FT*.25)ctx.lineTo(sp.x-w+Math.sin(y*.08+t*14)*FT*.06,y);
+  ctx.lineTo(sp.x+w,top);for(let y=top;y<base;y+=FT*.25)ctx.lineTo(sp.x+w+Math.sin(y*.08+t*12)*FT*.06,y);
+  ctx.lineTo(sp.x+w*1.3,base);ctx.closePath();ctx.fill();
+  ctx.fillStyle='rgba(245,252,255,.95)';for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(sp.x+(i-2.5)*FT*.18,top+Math.sin(t*16+i)*FT*.08,FT*(.14+.05*(i%2)),0,7);ctx.fill()}
+}
+function drawLair(x){
+  // Scylla's rock: a dark crag with a cave mouth and two glowing eyes
+  ctx.fillStyle='#2a3436';ctx.beginPath();ctx.moveTo(x-FT*4,altY(1));
+  ctx.lineTo(x-FT*3,altY(3.4));ctx.lineTo(x-FT*1.6,altY(4.4));ctx.lineTo(x-FT*.4,altY(3.9));ctx.lineTo(x+FT*1.2,altY(4.8));ctx.lineTo(x+FT*2.8,altY(3.2));ctx.lineTo(x+FT*4,altY(1));ctx.closePath();ctx.fill();
+  ctx.fillStyle='#10171a';ctx.beginPath();ctx.ellipse(x,altY(2.2),FT*1.1,FT*.8,0,0,7);ctx.fill();
+  const blink=Math.sin(t*1.7)>-.9?1:0;
+  if(blink){ctx.fillStyle='#ffcf3a';ctx.beginPath();ctx.arc(x-FT*.3,altY(2.35),FT*.08,0,7);ctx.arc(x+FT*.3,altY(2.35),FT*.08,0,7);ctx.fill()}
+  label("Scylla's rock",x,altY(5.6),false);
+}
+function drawShield(x,y,r,ph){
+  ctx.save();
+  const gl=ctx.createRadialGradient(x,y,r*.2,x,y,r*2);gl.addColorStop(0,'rgba(255,220,120,.6)');gl.addColorStop(1,'rgba(255,220,120,0)');
+  ctx.fillStyle=gl;ctx.beginPath();ctx.arc(x,y,r*2,0,7);ctx.fill();
+  ctx.fillStyle='#c8902e';ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();
+  ctx.fillStyle='#ffd36b';ctx.beginPath();ctx.arc(x,y,r*.82,0,7);ctx.fill();
+  ctx.strokeStyle='#8a5a17';ctx.lineWidth=Math.max(1,r*.08);ctx.beginPath();ctx.arc(x,y,r*.55,0,7);ctx.stroke();
+  ctx.fillStyle='#8a5a17';ctx.beginPath();ctx.arc(x-r*.2,y-r*.05,r*.13,0,7);ctx.arc(x+r*.2,y-r*.05,r*.13,0,7);ctx.fill();
+  ctx.fillStyle='#fff6d8';ctx.beginPath();ctx.arc(x-r*.2,y-r*.05,r*.05,0,7);ctx.arc(x+r*.2,y-r*.05,r*.05,0,7);ctx.fill();
+  ctx.strokeStyle='rgba(255,255,255,.8)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,r*1.05,ph,ph+.8);ctx.stroke();
+  ctx.restore();
+}
+function drawIsland(x,name){
+  const w=FT*7,peak=3.3,base=altY(1.2);
+  ctx.fillStyle='#3b5d3f';ctx.beginPath();ctx.moveTo(x-w/2,base);
+  ctx.bezierCurveTo(x-w*.3,altY(peak*.8),x-w*.1,altY(peak),x,altY(peak));
+  ctx.bezierCurveTo(x+w*.15,altY(peak),x+w*.3,altY(peak*.7),x+w/2,base);ctx.fill();
+  ctx.fillStyle='#55784f';ctx.beginPath();ctx.ellipse(x-w*.08,altY(peak*.92),w*.16,FT*.18,0,0,7);ctx.fill();
+  const tx=x-FT*.4,ty=altY(peak)-FT*.5;temple(tx,ty);
+  label(name,x,ty-FT*.65,false);
+}
+function drawSicily(x){
+  // a long green island with a flat plateau where Icarus and Daedalus land
+  const base=altY(1.2),pl=altY(3.4);
+  ctx.fillStyle='#34523a';ctx.beginPath();ctx.moveTo(x-FT*10,base);
+  ctx.bezierCurveTo(x-FT*8,altY(2.4),x-FT*6,pl,x-FT*4,pl);
+  ctx.lineTo(x+FT*11,pl);
+  ctx.bezierCurveTo(x+FT*13,pl,x+FT*14,altY(5.2),x+FT*16,altY(5.4));
+  ctx.lineTo(x+FT*40,altY(5.4));ctx.lineTo(x+FT*40,H);ctx.lineTo(x-FT*10,H);ctx.closePath();ctx.fill();
+  ctx.fillStyle='#4f7a4c';ctx.fillRect(x-FT*4,pl,FT*15,FT*.18);
+  // olive trees and a temple
+  for(let i=0;i<5;i++){const ox=x-FT*3+i*FT*3.1;ctx.fillStyle='#5d4a32';ctx.fillRect(ox,pl-FT*.5,FT*.08,FT*.5);ctx.fillStyle='#6f8f55';ctx.beginPath();ctx.arc(ox+FT*.04,pl-FT*.6,FT*.32,0,7);ctx.fill()}
+  ctx.save();ctx.translate(x+FT*4.4,pl-FT*1.1);ctx.scale(1.6,1.6);temple(0,0);ctx.restore();
+  label('Sicily',x+FT*5,pl-FT*2.1,true);
+}
+function temple(tx,ty){
+  ctx.fillStyle='#efe6d2';
+  ctx.fillRect(tx,ty+FT*.12,FT*.8,FT*.06);for(let i=0;i<4;i++)ctx.fillRect(tx+FT*.05+i*FT*.22,ty+FT*.18,FT*.07,FT*.32);
+  ctx.beginPath();ctx.moveTo(tx-FT*.05,ty+FT*.12);ctx.lineTo(tx+FT*.4,ty-FT*.08);ctx.lineTo(tx+FT*.85,ty+FT*.12);ctx.fill();
+}
+function label(name,x,y,big){
+  ctx.font=(big?'':'600 ')+Math.max(11,FT*(big?.7:.42))+'px '+(big?'Marcellus, Georgia, serif':'Figtree, sans-serif');
+  ctx.textAlign='center';ctx.textBaseline='middle';
+  const lw=ctx.measureText(name.toUpperCase()).width+FT*.6,lh=FT*(big?.9:.6);
+  ctx.fillStyle='rgba(14,26,38,.65)';rrect(x-lw/2,y-lh/2,lw,lh,lh/2);ctx.fill();
+  ctx.fillStyle='#f3ead6';ctx.fillText(name.toUpperCase(),x,y);ctx.textAlign='left';
+}
+function strokeJag(b){ctx.beginPath();b.jag.forEach(([ox,y],i)=>i?ctx.lineTo(b.x+ox,y):ctx.moveTo(b.x+ox,y));ctx.stroke()}
+function rrect(x,y,w,h,r){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,r);else ctx.rect(x,y,w,h)}
+
+function marker(a,col,label){
+  const y=altY(a);ctx.save();ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([10,8]);ctx.lineDashOffset=-t*40;
+  ctx.beginPath();ctx.moveTo(FT*1.1,y);ctx.lineTo(W,y);ctx.stroke();ctx.restore();
+  ctx.font='600 '+Math.max(10,FT*.36)+'px Figtree, sans-serif';ctx.textBaseline='middle';const tw=ctx.measureText(label).width;
+  ctx.fillStyle='rgba(14,26,38,.7)';ctx.fillRect(W-tw-18,y-FT*.32,tw+12,FT*.64);ctx.fillStyle=col;ctx.fillText(label,W-tw-12,y);
+}
+
+function drawFlyer(x,y,o){
+  const s=o.s;
+  ctx.save();ctx.translate(x,y);ctx.rotate(Math.max(-.5,Math.min(.5,-o.vy*.05)));
+  wing(o.beat+.25,s,.7,o);
+  ctx.strokeStyle=o.skin;ctx.lineWidth=s*.09;ctx.lineCap='round';
+  ctx.beginPath();ctx.moveTo(-s*.15,s*.05);ctx.lineTo(-s*.62,s*.18);ctx.moveTo(-s*.15,s*.05);ctx.lineTo(-s*.6,s*.02);ctx.stroke();
+  ctx.fillStyle=o.tunic;ctx.beginPath();ctx.ellipse(0,0,s*.3,s*.13,0,0,7);ctx.fill();
+  ctx.fillStyle=o.belt;ctx.fillRect(-s*.16,-s*.02,s*.06,s*.12);
+  ctx.fillStyle=o.skin;ctx.beginPath();ctx.arc(s*.36,-s*.04,s*.13,0,7);ctx.fill();
+  ctx.fillStyle=o.hair;ctx.beginPath();ctx.arc(s*.33,-s*.1,s*.11,Math.PI,0);ctx.fill();
+  wing(o.beat,s,1,o);
+  ctx.restore();
+}
+function wing(beat,s,alpha,o){
+  ctx.save();ctx.globalAlpha=alpha;ctx.rotate(-beat);
+  const melt=o.heat,wet=o.wet;
+  ctx.fillStyle=wet>.3?'#c9d8d6':o.wingCol;ctx.strokeStyle='#6b5530';ctx.lineWidth=Math.max(1,s*.03);
+  ctx.beginPath();ctx.moveTo(s*.05,-s*.05);
+  const tx=-s*1.05*(1-melt*.25),ty=-s*.95*(1-melt*.2);
+  ctx.quadraticCurveTo(-s*.2,-s*.9,tx,ty);
+  const n=6;for(let i=1;i<=n;i++){const k=i/n,ex=tx*(1-k)+(-s*.1)*k,ey=ty*(1-k)+s*.02*k;ctx.quadraticCurveTo(ex-s*.12,ey+s*.08,ex,ey)}
+  ctx.closePath();ctx.fill();ctx.stroke();
+  ctx.globalAlpha=alpha*.5;for(let i=1;i<5;i++){ctx.beginPath();ctx.moveTo(s*.02,-s*.05);ctx.lineTo(-s*(.25+i*.18)*(1-melt*.2),-s*(.9-i*.17)*(1-melt*.2));ctx.stroke()}
+  if(o.poop){ctx.globalAlpha=alpha;const spots=[[-.45,-.5],[-.7,-.65],[-.3,-.3]];
+    for(let i=0;i<o.poop;i++){const [a,b]=spots[i];ctx.fillStyle='#f7f4ea';ctx.beginPath();ctx.arc(s*a,s*b,s*.11,0,7);ctx.arc(s*(a+.08),s*(b+.06),s*.06,0,7);ctx.fill();ctx.fillStyle='#7a785f';ctx.beginPath();ctx.arc(s*a,s*b,s*.035,0,7);ctx.fill()}}
+  ctx.restore();
+}
+
+function setBar(id,v,txt){$(id).firstElementChild.style.width=(Math.max(0,Math.min(1,v))*100)+'%';$(id+'T').textContent=txt}
+let last=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  update(dt);draw();
+  const S=STAGES[stage];
+  setBar('prog',dist/TOTAL,Math.round(dist)+' / '+TOTAL+' stadia');
+  $('stageT').textContent='Leg '+(stage+1)+' of '+STAGES.length+' · '+S.a+' → '+S.b;
+  setBar('heat',P.heat,Math.round(Math.min(1,P.heat)*100)+'%');
+  setBar('wet',P.wet,Math.round(Math.min(1,P.wet)*100)+'%');
+  setBar('shd',P.shield>0?P.shield/P.shieldMax:0,P.shield>0?Math.ceil(P.shield)+'s':'None');
+  setBar('poop',P.poop/3,P.poop+' / 3');
+  requestAnimationFrame(loop);
+}
+resize();requestAnimationFrame(loop);
+})();
+</script>
+
+</body>
+</html>
